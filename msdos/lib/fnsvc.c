@@ -1,0 +1,298 @@
+#include "fnsvc.h"
+
+#include "fnctl.h"
+
+#include <stddef.h>
+#include <string.h>
+
+enum {
+  NIO_DEVICEID_FUJI = 0x70,
+  NIO_DEVICEID_DISK = 0xFC,
+  NIO_DEVICEID_FILE = 0xFE
+};
+
+enum {
+  NIO_FUJI_GET_MOUNT = 0xFB,
+  NIO_FUJI_SET_MOUNT = 0xFC
+};
+
+enum {
+  NIO_DISK_VERSION = 1,
+  NIO_DISK_MOUNT = 0x01,
+  NIO_DISK_UNMOUNT = 0x02
+};
+
+enum {
+  NIO_FILE_VERSION = 1,
+  NIO_FILE_LIST_DIRECTORY = 0x02,
+  NIO_FILE_RESOLVE_PATH = 0x05
+};
+
+static uint8_t req_buf[FNCTL_MAX_DATA];
+static uint8_t resp_buf[FNCTL_MAX_DATA];
+
+static void put_u16le(uint8_t *p, uint16_t value)
+{
+  p[0] = (uint8_t) (value & 0xFF);
+  p[1] = (uint8_t) ((value >> 8) & 0xFF);
+}
+
+static uint16_t get_u16le(const uint8_t *p)
+{
+  return (uint16_t) p[0] | ((uint16_t) p[1] << 8);
+}
+
+static uint32_t get_u32le(const uint8_t *p)
+{
+  return (uint32_t) p[0]
+      | ((uint32_t) p[1] << 8)
+      | ((uint32_t) p[2] << 16)
+      | ((uint32_t) p[3] << 24);
+}
+
+static int copy_string(char *dst, uint16_t cap, const uint8_t *src, uint16_t len)
+{
+  if (cap == 0 || len >= cap)
+    return 0;
+  memcpy(dst, src, len);
+  dst[len] = 0;
+  return 1;
+}
+
+int fnsvc_resolve_path(const char *base_uri, const char *arg,
+                       char *resolved_uri, uint16_t resolved_cap,
+                       char *display_path, uint16_t display_cap)
+{
+  uint16_t base_len = (uint16_t) strlen(base_uri);
+  uint16_t arg_len = (uint16_t) strlen(arg ? arg : "");
+  uint16_t off = 0;
+  uint16_t resp_len = 0;
+  uint8_t status = 0;
+  uint16_t uri_len;
+  uint16_t path_len;
+
+  if (base_len == 0 || 1 + 2 + base_len + 2 + arg_len > sizeof(req_buf))
+    return 0;
+
+  req_buf[off++] = NIO_FILE_VERSION;
+  put_u16le(&req_buf[off], base_len);
+  off += 2;
+  memcpy(&req_buf[off], base_uri, base_len);
+  off += base_len;
+  put_u16le(&req_buf[off], arg_len);
+  off += 2;
+  if (arg_len) {
+    memcpy(&req_buf[off], arg, arg_len);
+    off += arg_len;
+  }
+
+  if (!fnctl_nio_call(NIO_DEVICEID_FILE, NIO_FILE_RESOLVE_PATH,
+                      req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) ||
+      status != FNSVC_STATUS_OK || resp_len < 8 || resp_buf[0] != NIO_FILE_VERSION)
+    return 0;
+
+  off = 4;
+  uri_len = get_u16le(&resp_buf[off]);
+  off += 2;
+  if (off + uri_len + 2 > resp_len)
+    return 0;
+  if (!copy_string(resolved_uri, resolved_cap, &resp_buf[off], uri_len))
+    return 0;
+  off += uri_len;
+
+  path_len = get_u16le(&resp_buf[off]);
+  off += 2;
+  if (off + path_len > resp_len)
+    return 0;
+  return copy_string(display_path, display_cap, &resp_buf[off], path_len);
+}
+
+int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
+{
+  uint16_t uri_len = (uint16_t) strlen(uri);
+  uint16_t start = 0;
+  uint8_t status;
+  uint16_t resp_len;
+
+  if (!cb || uri_len == 0)
+    return 0;
+
+  for (;;) {
+    uint16_t off = 0;
+    uint16_t count;
+    uint16_t entries_len;
+    uint16_t pos;
+    uint16_t idx;
+    uint8_t flags;
+
+    if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
+      return 0;
+
+    req_buf[off++] = NIO_FILE_VERSION;
+    put_u16le(&req_buf[off], uri_len);
+    off += 2;
+    memcpy(&req_buf[off], uri, uri_len);
+    off += uri_len;
+    put_u16le(&req_buf[off], start);
+    off += 2;
+    put_u16le(&req_buf[off], 420);
+    off += 2;
+    req_buf[off++] = 0x02; /* sort by basename, binary response */
+
+    if (!fnctl_nio_call(NIO_DEVICEID_FILE, NIO_FILE_LIST_DIRECTORY,
+                        req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) ||
+        status != FNSVC_STATUS_OK || resp_len < 10 || resp_buf[0] != NIO_FILE_VERSION)
+      return 0;
+
+    flags = resp_buf[1];
+    count = get_u16le(&resp_buf[6]);
+    entries_len = get_u16le(&resp_buf[8]);
+    if ((uint16_t) (10 + entries_len) > resp_len)
+      return 0;
+
+    pos = 10;
+    for (idx = 0; idx < count; idx++) {
+      uint8_t eflags;
+      uint8_t name_len;
+      uint32_t size = 0;
+      char name[221];
+
+      if ((uint16_t) (pos + 2) > resp_len)
+        return 0;
+      eflags = resp_buf[pos++];
+      name_len = resp_buf[pos++];
+      if ((uint16_t) (pos + name_len) > resp_len || name_len >= sizeof(name))
+        return 0;
+      memcpy(name, &resp_buf[pos], name_len);
+      name[name_len] = 0;
+      pos += name_len;
+
+      if ((flags & 0x02) == 0) {
+        if ((uint16_t) (pos + 16) > resp_len)
+          return 0;
+        size = get_u32le(&resp_buf[pos]);
+        pos += 16;
+      }
+
+      cb((uint8_t) (eflags & 0x01), name, size, ctx);
+    }
+
+    start = (uint16_t) (start + count);
+    if ((flags & 0x01) == 0)
+      break;
+    if (count == 0)
+      return 0;
+  }
+
+  return 1;
+}
+
+int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
+{
+  uint8_t req[1];
+  uint8_t status;
+  uint16_t resp_len;
+  uint16_t off;
+  uint8_t len;
+
+  if (!mount || slot >= FNCTL_MAX_UNITS)
+    return 0;
+  memset(mount, 0, sizeof(*mount));
+  req[0] = slot;
+
+  if (!fnctl_nio_call(NIO_DEVICEID_FUJI, NIO_FUJI_GET_MOUNT,
+                      req, sizeof(req), resp_buf, sizeof(resp_buf), &status, &resp_len) ||
+      status != FNSVC_STATUS_OK || resp_len < 4 || resp_buf[0] != slot)
+    return 0;
+
+  mount->enabled = resp_buf[1] & 0x01;
+  off = 3;
+  len = resp_buf[2];
+  if (off + len + 1 > resp_len)
+    return 0;
+  memcpy(mount->uri, &resp_buf[off], len);
+  mount->uri[len] = 0;
+  off += len;
+  len = resp_buf[off++];
+  if (off + len > resp_len || len >= sizeof(mount->mode))
+    return 0;
+  memcpy(mount->mode, &resp_buf[off], len);
+  mount->mode[len] = 0;
+  return 1;
+}
+
+int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled)
+{
+  uint8_t status;
+  uint16_t resp_len;
+  size_t uri_size = strlen(uri ? uri : "");
+  size_t mode_size = strlen(mode ? mode : "");
+  uint8_t uri_len;
+  uint8_t mode_len;
+  uint16_t off = 0;
+
+  if (slot >= FNCTL_MAX_UNITS || uri_size > FNSVC_MAX_URI ||
+      mode_size > 255 || 4 + uri_size + mode_size > sizeof(req_buf))
+    return 0;
+
+  uri_len = (uint8_t) uri_size;
+  mode_len = (uint8_t) mode_size;
+
+  req_buf[off++] = slot;
+  req_buf[off++] = enabled ? 0x01 : 0x00;
+  req_buf[off++] = uri_len;
+  if (uri_len) {
+    memcpy(&req_buf[off], uri, uri_len);
+    off += uri_len;
+  }
+  req_buf[off++] = mode_len;
+  if (mode_len) {
+    memcpy(&req_buf[off], mode, mode_len);
+    off += mode_len;
+  }
+
+  return fnctl_nio_call(NIO_DEVICEID_FUJI, NIO_FUJI_SET_MOUNT,
+                        req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) &&
+         status == FNSVC_STATUS_OK;
+}
+
+int fnsvc_disk_mount(uint8_t slot, const char *uri, uint8_t readonly)
+{
+  uint8_t status;
+  uint16_t resp_len;
+  uint16_t uri_len = (uint16_t) strlen(uri);
+  uint16_t off = 0;
+
+  if (slot >= FNCTL_MAX_UNITS || uri_len == 0 || 8 + uri_len > sizeof(req_buf))
+    return 0;
+
+  req_buf[off++] = NIO_DISK_VERSION;
+  req_buf[off++] = (uint8_t) (slot + 1);
+  req_buf[off++] = readonly ? 0x01 : 0x00;
+  req_buf[off++] = 0x00;
+  put_u16le(&req_buf[off], 512);
+  off += 2;
+  put_u16le(&req_buf[off], uri_len);
+  off += 2;
+  memcpy(&req_buf[off], uri, uri_len);
+  off += uri_len;
+
+  return fnctl_nio_call(NIO_DEVICEID_DISK, NIO_DISK_MOUNT,
+                        req_buf, off, resp_buf, 32, &status, &resp_len) &&
+         status == FNSVC_STATUS_OK;
+}
+
+int fnsvc_disk_unmount(uint8_t slot)
+{
+  uint8_t status;
+  uint16_t resp_len;
+
+  if (slot >= FNCTL_MAX_UNITS)
+    return 0;
+  req_buf[0] = NIO_DISK_VERSION;
+  req_buf[1] = (uint8_t) (slot + 1);
+
+  return fnctl_nio_call(NIO_DEVICEID_DISK, NIO_DISK_UNMOUNT,
+                        req_buf, 2, resp_buf, 16, &status, &resp_len) &&
+         status == FNSVC_STATUS_OK;
+}
