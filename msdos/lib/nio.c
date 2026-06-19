@@ -272,15 +272,15 @@ int nio_disk_read_sector(uint8_t slot, uint32_t lba,
   if (!nio_call(NIO_DEVICEID_DISK, NIO_DISK_CMD_READ_SECTOR,
                 req, sizeof(req), rx_payload, sizeof(rx_payload), response))
     return 0;
-  if (response->status != NIO_STATUS_OK || response->payload_length < 9 || rx_payload[0] != NIO_DISK_VERSION)
+  if (response->status != NIO_STATUS_OK || response->payload_length < 11 || rx_payload[0] != NIO_DISK_VERSION)
     return 0;
 
-  data_len = get_u16le(&rx_payload[7]);
-  if (data_len > buffer_length || response->payload_length < (uint16_t) (9 + data_len))
+  data_len = get_u16le(&rx_payload[9]);
+  if (data_len > buffer_length || response->payload_length < (uint16_t) (11 + data_len))
     return 0;
 
   if (buffer && data_len)
-    memcpy(buffer, rx_payload + 9, data_len);
+    memcpy(buffer, rx_payload + 11, data_len);
   if (bytes_read)
     *bytes_read = data_len;
   return 1;
