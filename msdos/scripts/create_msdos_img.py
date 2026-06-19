@@ -94,7 +94,7 @@ def collect_entries(input_dir: Path) -> list[ImageEntry]:
     return entries
 
 
-def make_image_kb(output: Path, size_kb: int, fat_bits: int, label: str) -> None:
+def make_image_kb(output: Path, size_kb: int, fat_bits: int, label: str, cluster_sectors: int | None) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
@@ -102,7 +102,11 @@ def make_image_kb(output: Path, size_kb: int, fat_bits: int, label: str) -> None
     with output.open("wb") as handle:
         handle.truncate(size_kb * 1024)
 
-    run_checked(["mkfs.fat", "-F", str(fat_bits), "-n", label, str(output)])
+    args = ["mkfs.fat", "-F", str(fat_bits), "-n", label]
+    if cluster_sectors is not None:
+        args.extend(["-s", str(cluster_sectors)])
+    args.append(str(output))
+    run_checked(args)
 
 
 def mtools_path(image_path: str) -> str:
@@ -136,6 +140,7 @@ def create_msdos_img(
     size_kb: int,
     fat_bits: int,
     label: str,
+    cluster_sectors: int | None,
     show_listing: bool,
 ) -> None:
     require_tools()
@@ -146,6 +151,8 @@ def create_msdos_img(
         raise ValueError("Image size must be positive")
     if fat_bits not in (12, 16):
         raise ValueError("FAT size must be 12 or 16")
+    if cluster_sectors is not None and cluster_sectors not in (1, 2, 4, 8, 16, 32, 64):
+        raise ValueError("Cluster sectors must be one of: 1, 2, 4, 8, 16, 32, 64")
 
     label = validate_label(label)
     entries = collect_entries(input_dir)
@@ -155,11 +162,13 @@ def create_msdos_img(
     print(f"  Output: {output}")
     print(f"  Size:   {size_kb} KiB")
     print(f"  FAT:    FAT{fat_bits}")
+    if cluster_sectors is not None:
+        print(f"  Cluster:{cluster_sectors} sector(s)")
     print(f"  Label:  {label}")
     print(f"  Files:  {sum(1 for e in entries if not e.is_dir)}")
     print(f"  Dirs:   {sum(1 for e in entries if e.is_dir)}")
 
-    make_image_kb(output, size_kb, fat_bits, label)
+    make_image_kb(output, size_kb, fat_bits, label, cluster_sectors)
     populate_image(output, entries)
 
     if show_listing:
@@ -178,6 +187,7 @@ Examples:
   msdos/scripts/create_msdos_img.py -i msdos/bin -o build/msdos-apps.img
   msdos/scripts/create_msdos_img.py -i stage -o ~/8bit/TNFS/msdos/apps.img -p 1440 -l NIOAPPS
   msdos/scripts/create_msdos_img.py -i big-stage -o ~/8bit/TNFS/msdos/big.img -s 16 -f 16
+  msdos/scripts/create_msdos_img.py -i big-stage -o ~/8bit/TNFS/msdos/big.img -s 16 -f 16 -c 8
 
 The image is a raw FAT volume. In MS-DOS, after FHOST points at your TNFS
 server, use FIN/FMOUNT with the image path, for example:
@@ -192,6 +202,8 @@ server, use FIN/FMOUNT with the image path, for example:
                         help="Floppy-style image size in KiB when --size-mb is omitted (default: 1440)")
     parser.add_argument("-f", "--fat", type=int, choices=(12, 16), default=None,
                         help="FAT type (default: FAT12 for presets, FAT16 with --size-mb)")
+    parser.add_argument("-c", "--cluster-sectors", type=int, default=None,
+                        help="Sectors per cluster for mkfs.fat -s (default: 8 for FAT16 size images, mkfs default otherwise)")
     parser.add_argument("-l", "--label", default="NIOAPPS", help="MS-DOS volume label (default: NIOAPPS)")
     parser.add_argument("--no-list", action="store_true", help="Do not print mdir listing after creation")
     return parser.parse_args(argv)
@@ -205,6 +217,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         size_kb = args.size_mb * 1024
         fat_bits = args.fat or 16
+    cluster_sectors = args.cluster_sectors
+    if cluster_sectors is None and args.size_mb is not None and fat_bits == 16:
+        cluster_sectors = 8
 
     try:
         create_msdos_img(
@@ -213,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
             size_kb=size_kb,
             fat_bits=fat_bits,
             label=args.label,
+            cluster_sectors=cluster_sectors,
             show_listing=not args.no_list,
         )
     except (FileNotFoundError, RuntimeError, ValueError, subprocess.CalledProcessError) as exc:

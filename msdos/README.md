@@ -93,10 +93,23 @@ The image is a raw FAT volume, not qcow. That is intentional: it is the form
 
 By default the script creates a 1440 KiB FAT12 floppy-style image. This is
 deliberately small because DOS directory operations read FAT and root-directory
-sectors over the FujiNet block path; a mostly empty 32 MiB FAT16 image can make
-simple commands like `DIR` feel slow. Use `--preset 2880` for a 2.88 MiB image,
+sectors over the FujiNet block path. Use `--preset 2880` for a 2.88 MiB image,
 or `--size-mb N --fat 16` when you actually need a larger hard-disk-style
-volume.
+volume. Size-based FAT16 images default to 8 sectors per cluster to keep FAT
+metadata smaller; override with `--cluster-sectors N` if you need a different
+layout.
+
+For example, this creates a 16 MiB FAT16 image with 4 KiB clusters:
+
+```sh
+msdos/scripts/create_msdos_img.py \
+  -i msdos/bin \
+  -o ~/8bit/TNFS/msdos/nio-apps-16mb.img \
+  --size-mb 16 \
+  --fat 16 \
+  --cluster-sectors 8 \
+  -l NIO16MB
+```
 
 QEMU-compatible tools for this workflow are:
 
