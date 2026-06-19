@@ -94,13 +94,13 @@ def collect_entries(input_dir: Path) -> list[ImageEntry]:
     return entries
 
 
-def make_image(output: Path, size_mb: int, fat_bits: int, label: str) -> None:
+def make_image_kb(output: Path, size_kb: int, fat_bits: int, label: str) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
 
     with output.open("wb") as handle:
-        handle.truncate(size_mb * 1024 * 1024)
+        handle.truncate(size_kb * 1024)
 
     run_checked(["mkfs.fat", "-F", str(fat_bits), "-n", label, str(output)])
 
@@ -133,7 +133,7 @@ def create_msdos_img(
     *,
     input_dir: Path,
     output: Path,
-    size_mb: int,
+    size_kb: int,
     fat_bits: int,
     label: str,
     show_listing: bool,
@@ -142,7 +142,7 @@ def create_msdos_img(
 
     if not input_dir.is_dir():
         raise FileNotFoundError(f"Input directory not found: {input_dir}")
-    if size_mb <= 0:
+    if size_kb <= 0:
         raise ValueError("Image size must be positive")
     if fat_bits not in (12, 16):
         raise ValueError("FAT size must be 12 or 16")
@@ -153,13 +153,13 @@ def create_msdos_img(
     print("Creating MS-DOS FAT disk image...")
     print(f"  Input:  {input_dir}")
     print(f"  Output: {output}")
-    print(f"  Size:   {size_mb} MiB")
+    print(f"  Size:   {size_kb} KiB")
     print(f"  FAT:    FAT{fat_bits}")
     print(f"  Label:  {label}")
     print(f"  Files:  {sum(1 for e in entries if not e.is_dir)}")
     print(f"  Dirs:   {sum(1 for e in entries if e.is_dir)}")
 
-    make_image(output, size_mb, fat_bits, label)
+    make_image_kb(output, size_kb, fat_bits, label)
     populate_image(output, entries)
 
     if show_listing:
@@ -176,7 +176,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         epilog="""\
 Examples:
   msdos/scripts/create_msdos_img.py -i msdos/bin -o build/msdos-apps.img
-  msdos/scripts/create_msdos_img.py -i stage -o ~/8bit/TNFS/msdos/apps.img -s 16 -l NIOAPPS
+  msdos/scripts/create_msdos_img.py -i stage -o ~/8bit/TNFS/msdos/apps.img -p 1440 -l NIOAPPS
+  msdos/scripts/create_msdos_img.py -i big-stage -o ~/8bit/TNFS/msdos/big.img -s 16 -f 16
 
 The image is a raw FAT volume. In MS-DOS, after FHOST points at your TNFS
 server, use FIN/FMOUNT with the image path, for example:
@@ -186,8 +187,11 @@ server, use FIN/FMOUNT with the image path, for example:
     )
     parser.add_argument("-i", "--input", required=True, type=Path, help="Input folder")
     parser.add_argument("-o", "--output", required=True, type=Path, help="Output .img file")
-    parser.add_argument("-s", "--size-mb", type=int, default=32, help="Image size in MiB (default: 32)")
-    parser.add_argument("-f", "--fat", type=int, choices=(12, 16), default=16, help="FAT type (default: 16)")
+    parser.add_argument("-s", "--size-mb", type=int, default=None, help="Image size in MiB")
+    parser.add_argument("-p", "--preset", choices=("1440", "2880"), default="1440",
+                        help="Floppy-style image size in KiB when --size-mb is omitted (default: 1440)")
+    parser.add_argument("-f", "--fat", type=int, choices=(12, 16), default=None,
+                        help="FAT type (default: FAT12 for presets, FAT16 with --size-mb)")
     parser.add_argument("-l", "--label", default="NIOAPPS", help="MS-DOS volume label (default: NIOAPPS)")
     parser.add_argument("--no-list", action="store_true", help="Do not print mdir listing after creation")
     return parser.parse_args(argv)
@@ -195,12 +199,19 @@ server, use FIN/FMOUNT with the image path, for example:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.size_mb is None:
+        size_kb = int(args.preset)
+        fat_bits = args.fat or 12
+    else:
+        size_kb = args.size_mb * 1024
+        fat_bits = args.fat or 16
+
     try:
         create_msdos_img(
             input_dir=args.input.resolve(),
             output=args.output.expanduser().resolve(),
-            size_mb=args.size_mb,
-            fat_bits=args.fat,
+            size_kb=size_kb,
+            fat_bits=fat_bits,
             label=args.label,
             show_listing=not args.no_list,
         )

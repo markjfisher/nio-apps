@@ -85,13 +85,20 @@ cd /home/markf/dev/nio/repos/nio-apps
 msdos/scripts/create_msdos_img.py \
   -i msdos/bin \
   -o ~/8bit/TNFS/msdos/nio-apps.img \
-  -s 32 \
   -l NIOAPPS
 ```
 
 The image is a raw FAT volume, not qcow. That is intentional: it is the form
-`fujinet-nio` DiskService can expose directly to MS-DOS. QEMU-compatible tools
-for this workflow are:
+`fujinet-nio` DiskService can expose directly to MS-DOS.
+
+By default the script creates a 1440 KiB FAT12 floppy-style image. This is
+deliberately small because DOS directory operations read FAT and root-directory
+sectors over the FujiNet block path; a mostly empty 32 MiB FAT16 image can make
+simple commands like `DIR` feel slow. Use `--preset 2880` for a 2.88 MiB image,
+or `--size-mb N --fat 16` when you actually need a larger hard-disk-style
+volume.
+
+QEMU-compatible tools for this workflow are:
 
 - `mkfs.fat` to format raw FAT12/FAT16 volumes.
 - `mcopy`, `mmd`, and `mdir` to populate and inspect the image without mounting.

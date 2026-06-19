@@ -2,3 +2,14 @@ msdos/bin/
 msdos/*.obj
 msdos/*.o
 msdos/*.err
+
+/scratch/
+
+# python
+*.pyc
+__pycache__/
+*.py[cod]
+
+# various
+*.egg-info/
+*.egg
