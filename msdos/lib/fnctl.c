@@ -46,7 +46,7 @@ static int ioctl_recv(int drive, void *buffer, uint16_t size)
 
 static int ioctl_send(int drive, void *buffer, uint16_t size)
 {
-  return ioctl_call(drive, 0x04, buffer, size);
+  return ioctl_call(drive, 0x05, buffer, size);
 }
 
 int fnctl_find_drive(void)
