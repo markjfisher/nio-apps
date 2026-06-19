@@ -1,0 +1,4 @@
+msdos/bin/
+msdos/*.obj
+msdos/*.o
+msdos/*.err

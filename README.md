@@ -4,3 +4,7 @@ A repository for fujinet-nio test applications.
 
 Anything serious will move out of this repo. This repo's purpose is a platform for initial applications without a plethora of separate repositories.
 
+## Platforms
+
+- `msdos/` contains Open Watcom-built MS-DOS test applications for the clean
+  `fujinet-nio` protocol.
