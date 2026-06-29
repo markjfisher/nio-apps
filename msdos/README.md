@@ -2,10 +2,15 @@
 
 These are small MS-DOS applications for `fujinet-nio`.
 
-The `NIO*` tools speak the clean NIO service protocol directly over FujiBus +
-SLIP on a PC COM port. The `F*` tools use the NIO build of `FUJINET.SYS` as the
-resident DOS integration layer, so they share current host/path state and DOS
-drive-to-slot mappings across command invocations.
+The `NIO*` tools link `fujinet-nio-lib` with the MS-DOS serial backend and speak
+the clean NIO service protocol directly on a PC COM port. The `F*` tools link
+the same library with the MS-DOS IOCTL backend and use the NIO build of
+`FUJINET.SYS` as the resident DOS integration layer, so they share current
+host/path state and DOS drive-to-slot mappings across command invocations.
+
+Both paths use the same `fujinet-nio-lib` raw FujiBus/NIO call layer. The app
+tree no longer carries its own SLIP, checksum, or FujiBus framing
+implementation.
 
 ## Build
 
@@ -16,6 +21,22 @@ WATCOM=/opt/watcom EDPATH=/opt/watcom/eddat INCLUDE=/opt/watcom/h PATH="/opt/wat
 ```
 
 The output executables are written to `msdos/bin`.
+
+The makefile builds the required `fujinet-nio-lib` MS-DOS backend archives
+automatically:
+
+- `fujinet-nio-msdos-serial.lib` for `NIOPROBE.EXE` and `NIOREAD.EXE`.
+- `fujinet-nio-msdos-ioctl.lib` for `FHOST.EXE`, `FLS.EXE`, `FIN.EXE`,
+  `FMOUNT.EXE`, and `FDRIVE.EXE`.
+
+`FLS` asks the file service for up to 420 bytes of directory payload per call by
+default. That keeps normal machines from doing unnecessary extra round trips.
+For a slow or fragile serial backend, build only that test disk with a smaller
+page size:
+
+```sh
+make -C msdos FNSVC_LIST_MAX_PAYLOAD=96
+```
 
 ## Resident Driver Setup
 
@@ -36,6 +57,30 @@ LASTDRIVE=Z
 `FUJINET.SYS` creates a fixed run of DOS block drives at boot. The exact letters
 depend on the DOS machine; use `FDRIVE` to see them.
 
+The NIO driver also accepts DOS 2.x-safe `CONFIG.SYS` options for serial speed
+and disk batching:
+
+```dos
+DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=115200 FUJI_BATCH_SECTORS=16 FUJI_READAHEAD_SECTORS=16 FUJI_IO_RETRIES=2
+```
+
+Keep the `16/16` disk defaults for modern emulators and real machines where the
+serial path is reliable. They are what make hosted-disk `DIR` operations usable.
+For 86Box XT/8250 named-pipe testing, first try only lowering the baud rate:
+
+```dos
+DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=19200 FUJI_BATCH_SECTORS=16 FUJI_READAHEAD_SECTORS=16 FUJI_IO_RETRIES=2
+```
+
+Only reduce `FUJI_BATCH_SECTORS` and `FUJI_READAHEAD_SECTORS` for a specific
+backend that proves it cannot tolerate larger framed responses.
+
+By default the driver also enables adaptive downshift. It still starts with the
+configured `16/16` read size, but if a large SLIP frame is truncated or fails
+checksum it reduces future read batches to half the failed size and retries the
+same DOS request. Set `FUJI_AUTO_DOWNSHIFT=0` to disable that behavior, or
+`FUJI_DEBUG_IO=1` to print each recovered retry while debugging.
+
 ## Tools
 
 - `FHOST.EXE [uri]`
@@ -53,9 +98,18 @@ depend on the DOS machine; use `FDRIVE` to see them.
 - `NIOPROBE.EXE [slot] [com]`
   - Calls DiskService `Info` and prints the mounted image status.
   - Defaults to NIO disk slot `1` and `COM1`.
+  - Uses direct COM access; do not run it while `FUJINET.SYS` is actively using
+    the same COM port.
 - `NIOREAD.EXE [slot] [lba] [bytes] [com]`
   - Reads a sector and prints a hex dump.
   - Defaults to slot `1`, LBA `0`, `512` bytes, and `COM1`.
+  - Uses direct COM access; do not run it while `FUJINET.SYS` is actively using
+    the same COM port.
+
+The `F*` tools do not touch the UART directly. They use DOS block-device IOCTL
+against `FUJINET.SYS`, which keeps one owner of COM1 while allowing applications
+loaded from FujiNet DOS drives to make FileService, DiskService, and network
+requests.
 
 The disk slot argument is the NIO DiskService slot number. Slot `1` is the
 first configured disk mount in `fujinet-nio`.

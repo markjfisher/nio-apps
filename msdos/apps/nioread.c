@@ -1,5 +1,7 @@
 #include "nio.h"
-#include "serial.h"
+
+#include "fn_msdos.h"
+#include "fujinet-nio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,9 +45,9 @@ int main(int argc, char **argv)
   uint32_t lba = 0;
   unsigned bytes = 512;
   unsigned com = 1;
-  uint16_t base;
   uint16_t bytes_read = 0;
   nio_response_t response;
+  uint8_t init_result;
 
   if (argc > 5 || (argc > 1 && argv[1][0] == '?')) {
     print_usage();
@@ -66,15 +68,19 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  base = serial_com_base(com);
-  if (!base) {
+  if (com < 1 || com > 4) {
     print_usage();
     return 1;
   }
 
   printf("NIOREAD slot %u lba %lu bytes %u COM%u\r\n",
          (unsigned) slot, lba, bytes, com);
-  serial_init(base, 1);
+  fn_msdos_serial_set_com((uint8_t) com);
+  init_result = fn_init();
+  if (init_result != 0) {
+    printf("NIO init failed: %u\r\n", (unsigned) init_result);
+    return 2;
+  }
 
   if (!nio_disk_read_sector(slot, lba, sector, (uint16_t) bytes, &bytes_read, &response)) {
     printf("Read failed");

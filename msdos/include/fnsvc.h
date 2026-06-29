@@ -10,6 +10,18 @@ enum {
   FNSVC_STATUS_OK = 0
 };
 
+enum {
+  FNSVC_ERR_NONE = 0,
+  FNSVC_ERR_INVALID_ARG,
+  FNSVC_ERR_REQUEST_TOO_LARGE,
+  FNSVC_ERR_TRANSPORT,
+  FNSVC_ERR_STATUS,
+  FNSVC_ERR_BAD_VERSION,
+  FNSVC_ERR_SHORT_RESPONSE,
+  FNSVC_ERR_ENTRIES_BOUNDS,
+  FNSVC_ERR_ENTRY_BOUNDS
+};
+
 typedef struct {
   uint8_t enabled;
   char uri[FNSVC_MAX_URI + 1];
@@ -19,6 +31,7 @@ typedef struct {
 typedef void (*fnsvc_list_cb)(uint8_t is_dir,
                               const char *name,
                               uint32_t size,
+                              uint32_t mtime,
                               void *ctx);
 
 int fnsvc_resolve_path(const char *base_uri, const char *arg,
@@ -29,5 +42,9 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount);
 int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled);
 int fnsvc_disk_mount(uint8_t slot, const char *uri, uint8_t readonly);
 int fnsvc_disk_unmount(uint8_t slot);
+uint8_t fnsvc_last_error(void);
+uint8_t fnsvc_last_status(void);
+uint8_t fnsvc_last_raw_error(void);
+uint16_t fnsvc_last_response_len(void);
 
 #endif

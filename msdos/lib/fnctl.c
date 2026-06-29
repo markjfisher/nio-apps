@@ -1,5 +1,8 @@
 #include "fnctl.h"
 
+#include "fn_msdos.h"
+#include "fn_raw.h"
+
 #include <ctype.h>
 #include <i86.h>
 #include <stddef.h>
@@ -10,7 +13,6 @@ static int cached_drive;
 static uint16_t last_dos_error;
 static fnctl_query_t query_buf;
 static fnctl_unit_map_t unit_map_buf;
-static fnctl_nio_call_t nio_call_buf;
 static uint8_t state_request_buf[FNCTL_MAX_DATA];
 
 static int valid_sig(const char *sig)
@@ -165,32 +167,23 @@ int fnctl_nio_call(uint8_t device, uint8_t command,
                    void *response, uint16_t response_capacity,
                    uint8_t *nio_status, uint16_t *response_len)
 {
-  int drive = fnctl_find_drive();
+  fn_raw_response_t raw;
+  uint8_t result;
 
-  if (!drive || request_len > FNCTL_MAX_DATA || response_capacity > FNCTL_MAX_DATA)
+  if (request_len > FNCTL_MAX_DATA || response_capacity > FNCTL_MAX_DATA)
     return 0;
 
-  memset(&nio_call_buf, 0, sizeof(nio_call_buf));
-  nio_call_buf.command = FNCTL_NIO_CALL;
-  nio_call_buf.device = device;
-  nio_call_buf.nio_command = command;
-  nio_call_buf.request_len = request_len;
-  nio_call_buf.response_len = response_capacity;
-  if (request && request_len)
-    memcpy(nio_call_buf.data, request, request_len);
-
-  if (!ioctl_recv(drive, &nio_call_buf, sizeof(nio_call_buf)) ||
-      !valid_sig(nio_call_buf.signature))
+  result = fn_raw_call(device, command, request, request_len,
+                       response, response_capacity, &raw);
+  if (result != 0) {
+    last_dos_error = fn_msdos_ioctl_last_error();
     return 0;
-
-  if (nio_call_buf.response_len > response_capacity)
-    return 0;
-  if (response && nio_call_buf.response_len)
-    memcpy(response, nio_call_buf.data, nio_call_buf.response_len);
+  }
+  last_dos_error = 0;
   if (nio_status)
-    *nio_status = nio_call_buf.nio_status;
+    *nio_status = raw.status;
   if (response_len)
-    *response_len = nio_call_buf.response_len;
+    *response_len = raw.payload_length;
   return 1;
 }
 
