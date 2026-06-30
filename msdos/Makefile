@@ -9,7 +9,7 @@ FNSVC_LIST_MAX_PAYLOAD ?= 420
 CFLAGS := -q -0 -bt=dos -ms -Iinclude $(FN_INC) -s -os -DFNSVC_LIST_MAX_PAYLOAD=$(FNSVC_LIST_MAX_PAYLOAD)
 NIO_SRCS := lib/nio.c
 FNCTL_SRCS := lib/fnctl.c lib/fnsvc.c
-FNTOOLS := fhost fls fin fmount fdrive
+FNTOOLS := fhost fls fin fmount fdrive fapp
 
 .PHONY: all clean
 
@@ -44,6 +44,9 @@ $(BIN_DIR)/fmount.exe: apps/fmount.c $(FNCTL_SRCS) include/fnctl.h include/fnsvc
 
 $(BIN_DIR)/fdrive.exe: apps/fdrive.c $(FNCTL_SRCS) include/fnctl.h include/fnsvc.h $(FN_IOCTL_LIB) | $(BIN_DIR)
 	$(WCL) $(CFLAGS) -fe=$@ apps/fdrive.c $(FNCTL_SRCS) $(FN_IOCTL_LIB)
+
+$(BIN_DIR)/fapp.exe: apps/fapp.c $(FN_IOCTL_LIB) | $(BIN_DIR)
+	$(WCL) $(CFLAGS) -fe=$@ apps/fapp.c $(FN_IOCTL_LIB)
 
 clean:
 	rm -rf $(BIN_DIR)

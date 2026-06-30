@@ -27,7 +27,7 @@ automatically:
 
 - `fujinet-nio-msdos-serial.lib` for `NIOPROBE.EXE` and `NIOREAD.EXE`.
 - `fujinet-nio-msdos-ioctl.lib` for `FHOST.EXE`, `FLS.EXE`, `FIN.EXE`,
-  `FMOUNT.EXE`, and `FDRIVE.EXE`.
+  `FMOUNT.EXE`, `FDRIVE.EXE`, and `FAPP.EXE`.
 
 `FLS` asks the file service for up to 420 bytes of directory payload per call by
 default. That keeps normal machines from doing unnecessary extra round trips.
@@ -95,6 +95,14 @@ same DOS request. Set `FUJI_AUTO_DOWNSHIFT=0` to disable that behavior, or
     unit with the same number as the slot.
 - `FDRIVE.EXE`
   - Shows FujiNet DOS drive letters, mapped NIO slots, and persisted images.
+- `FAPP.EXE`
+  - Exercises the `fujinet-nio-lib` app-store API through `FUJINET.SYS`.
+  - Commands:
+    - `FAPP LIST ns`
+    - `FAPP STAT ns key`
+    - `FAPP GET ns key`
+    - `FAPP PUT ns key value`
+    - `FAPP DEL ns key`
 - `NIOPROBE.EXE [slot] [com]`
   - Calls DiskService `Info` and prints the mounted image status.
   - Defaults to NIO disk slot `1` and `COM1`.
@@ -119,6 +127,9 @@ first configured disk mount in `fujinet-nio`.
 ```dos
 FHOST tnfs://foo.bar/baz/
 FLS
+FAPP PUT config-ng colour.preference blue
+FAPP GET config-ng colour.preference
+FAPP LIST config-ng
 FIN 0 images/DOS622.IMG
 FMOUNT 0 D: RW
 D:
