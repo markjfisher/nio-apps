@@ -1,7 +1,7 @@
 TARGETS := msdos atari
-DEFAULT_TARGET := $(if $(TARGET),$(TARGET),msdos)
+DEFAULT_TARGET := $(if $(TARGET),$(TARGET),all-targets)
 
-.PHONY: all all-targets clean disk $(TARGETS)
+.PHONY: all all-targets clean disk disk-all $(TARGETS)
 
 all: $(DEFAULT_TARGET)
 
@@ -13,7 +13,10 @@ all-targets: $(TARGETS)
 disk:
 	$(MAKE) -f makefiles/build.mk TARGET=msdos disk
 
-clean:
+disk-all:
 	@for target in $(TARGETS); do \
-		$(MAKE) -f makefiles/build.mk TARGET=$$target clean; \
+		$(MAKE) -f makefiles/build.mk TARGET=$$target disk; \
 	done
+
+clean:
+	rm -rf build

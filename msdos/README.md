@@ -20,7 +20,7 @@ The shared `F*` applications now build from the repository root:
 make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-The output executables are written to `bin/msdos`.
+The output executables are written to `build/msdos/bin`.
 
 The `msdos/Makefile` remains as a compatibility wrapper:
 
@@ -163,7 +163,7 @@ from `dosfstools`/`mtools`.
 ```sh
 cd /home/markf/dev/nio/repos/nio-apps
 msdos/scripts/create_msdos_img.py \
-  -i bin/msdos \
+  -i build/msdos/bin \
   -o ~/8bit/TNFS/msdos/nio-apps.img \
   -l NIOAPPS
 ```
@@ -183,7 +183,7 @@ For example, this creates a 16 MiB FAT16 image with 4 KiB clusters:
 
 ```sh
 msdos/scripts/create_msdos_img.py \
-  -i bin/msdos \
+  -i build/msdos/bin \
   -o ~/8bit/TNFS/msdos/nio-apps-16mb.img \
   --size-mb 16 \
   --fat 16 \

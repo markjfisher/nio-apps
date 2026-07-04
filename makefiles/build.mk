@@ -12,15 +12,17 @@ SRC_DIR := src
 APP_INCLUDE_DIR := include/common
 PLATFORM_INCLUDE_DIR := include/platform/$(PLATFORM)
 NIO_INCLUDE_DIR := $(FUJINET_NIO_LIB)/include
-OBJ_DIR := obj/$(TARGET)
-BIN_DIR := bin
-DISK_DIR := disk-images
+BUILD_DIR ?= build
+TARGET_BUILD_DIR := $(BUILD_DIR)/$(TARGET)
+OBJ_DIR := $(TARGET_BUILD_DIR)/obj
+BIN_DIR := $(TARGET_BUILD_DIR)/bin
+DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 PROGRAMS := fhost fls fin fmount fdrive fapp
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
 APP_OBJS := $(PROGRAMS:%=$(OBJ_DIR)/$(APP_DIR)/%.o)
-PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/$(TARGET)/%$(PROGRAM_EXT))
+PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT))
 DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d)
 
 ifeq ($(COMPILER_FAMILY),wcc)
@@ -50,17 +52,17 @@ $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(call compile_c)
 
-$(BIN_DIR)/$(TARGET)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)/$(TARGET)
+$(BIN_DIR)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
 	$(call link_program)
 
 $(OBJ_DIR):
 	mkdir -p $@
 
-$(BIN_DIR)/$(TARGET):
+$(BIN_DIR):
 	mkdir -p $@
 
 $(DISK_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)/$(TARGET) $(DISK_DIR)/$(TARGET) $(DISK_DIR)/atari-stage
+	rm -rf $(TARGET_BUILD_DIR)

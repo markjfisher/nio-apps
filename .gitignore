@@ -1,7 +1,4 @@
-bin/
-obj/
-disk-images/
-msdos/bin/
+build/
 msdos/*.obj
 msdos/*.o
 msdos/*.err

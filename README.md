@@ -20,6 +20,12 @@ The shared `F*` applications currently build for:
 
 ## Build
 
+Build all configured targets:
+
+```sh
+make
+```
+
 Build one target:
 
 ```sh
@@ -27,13 +33,13 @@ make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
 make TARGET=atari FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-Build all configured targets:
+The explicit target for all configured platforms is also available:
 
 ```sh
 make all-targets FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-Outputs are written to `bin/<target>/`:
+Outputs are written to `build/<target>/bin/`:
 
 - MS-DOS: `fhost.exe`, `fls.exe`, `fin.exe`, `fmount.exe`, `fdrive.exe`,
   `fapp.exe`
@@ -52,7 +58,7 @@ make -f makefiles/build.mk TARGET=msdos disk FUJINET_NIO_LIB=../fujinet-nio-lib
 make -f makefiles/build.mk TARGET=atari disk FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-The MS-DOS disk target creates `disk-images/nio-apps-msdos.img`. The Atari disk
-target currently stages `.xex` files under `disk-images/atari-stage`; ATR
+The MS-DOS disk target creates `build/msdos/disk/nio-apps-msdos.img`. The Atari disk
+target currently stages `.xex` files under `build/atari/disk/stage`; ATR
 creation is intentionally isolated to `makefiles/disk-atari.mk` so the final
 tooling can be selected without changing the common build rules.
