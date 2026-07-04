@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 
   if (argc == 1) {
     if (!fnctl_get_state(&state)) {
-      puts("FUJINET.SYS not loaded or not responding");
+      puts("FujiNet state service is not responding");
       return 2;
     }
     if (state.current_uri_len == 0) {
@@ -44,13 +44,13 @@ int main(int argc, char **argv)
   }
 
   if (!fnctl_set_state(uri, path)) {
-    printf("Unable to store current host in FUJINET.SYS (DOS error %u, %s)\n",
+    printf("Unable to store current host (error %u, %s)\n",
            fnctl_last_dos_error(), FHOST_BUILD_ID);
     return 2;
   }
 
   if (!fnctl_get_state(&state) || strcmp(state.current_uri, uri) != 0) {
-    puts("Stored host could not be verified in FUJINET.SYS (" FHOST_BUILD_ID ")");
+    puts("Stored host could not be verified (" FHOST_BUILD_ID ")");
     return 2;
   }
 

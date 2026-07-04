@@ -3,15 +3,17 @@
 
 #include <stdio.h>
 
+static fnsvc_mount_t mount_buf;
+
 int main(void)
 {
   uint8_t unit;
+  uint8_t slot;
+  int drive;
   unsigned shown = 0;
 
   for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {
-    uint8_t slot;
-    int drive = fnctl_find_drive_for_unit(unit);
-    fnsvc_mount_t mount;
+    drive = fnctl_find_drive_for_unit(unit);
 
     if (!drive)
       continue;
@@ -19,8 +21,8 @@ int main(void)
       continue;
 
     printf("%c: slot %u", 'A' + drive - 1, (unsigned) slot);
-    if (fnsvc_get_mount(slot, &mount) && mount.enabled && mount.uri[0])
-      printf(" [%s] %s", mount.mode, mount.uri);
+    if (fnsvc_get_mount(slot, &mount_buf) && mount_buf.enabled && mount_buf.uri[0])
+      printf(" [%s] %s", mount_buf.mode, mount_buf.uri);
     else
       printf(" -- no image selected --");
     puts("");
@@ -28,7 +30,7 @@ int main(void)
   }
 
   if (!shown) {
-    puts("No FujiNet DOS drives found. Is FUJINET.SYS loaded?");
+    puts("No FujiNet drives found");
     return 1;
   }
 

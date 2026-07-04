@@ -14,20 +14,35 @@ implementation.
 
 ## Build
 
-Use Open Watcom. If it is not already in the shell environment:
+The shared `F*` applications now build from the repository root:
 
 ```sh
-WATCOM=/opt/watcom EDPATH=/opt/watcom/eddat INCLUDE=/opt/watcom/h PATH="/opt/watcom/binl64:/opt/watcom/binl:$PATH" make -C msdos
+make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-The output executables are written to `msdos/bin`.
+The output executables are written to `bin/msdos`.
+
+The `msdos/Makefile` remains as a compatibility wrapper:
+
+```sh
+make -C msdos FUJINET_NIO_LIB=../../fujinet-nio-lib
+```
+
+Use Open Watcom. If it is not already in the shell environment, export the
+Watcom variables before building, for example:
+
+```sh
+WATCOM=/opt/watcom EDPATH=/opt/watcom/eddat INCLUDE=/opt/watcom/h PATH="/opt/watcom/binl64:/opt/watcom/binl:$PATH" make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
+```
 
 The makefile builds the required `fujinet-nio-lib` MS-DOS backend archives
 automatically:
 
-- `fujinet-nio-msdos-serial.lib` for `NIOPROBE.EXE` and `NIOREAD.EXE`.
 - `fujinet-nio-msdos-ioctl.lib` for `FHOST.EXE`, `FLS.EXE`, `FIN.EXE`,
   `FMOUNT.EXE`, `FDRIVE.EXE`, and `FAPP.EXE`.
+
+`NIOPROBE.EXE` and `NIOREAD.EXE` remain MS-DOS-only direct serial experiments in
+`msdos/apps/`; they are not part of the shared target build.
 
 `FLS` asks the file service for up to 420 bytes of directory payload per call by
 default. That keeps normal machines from doing unnecessary extra round trips.
@@ -35,7 +50,7 @@ For a slow or fragile serial backend, build only that test disk with a smaller
 page size:
 
 ```sh
-make -C msdos FNSVC_LIST_MAX_PAYLOAD=96
+make TARGET=msdos FNSVC_LIST_MAX_PAYLOAD=96 FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
 ## Resident Driver Setup
@@ -148,7 +163,7 @@ from `dosfstools`/`mtools`.
 ```sh
 cd /home/markf/dev/nio/repos/nio-apps
 msdos/scripts/create_msdos_img.py \
-  -i msdos/bin \
+  -i bin/msdos \
   -o ~/8bit/TNFS/msdos/nio-apps.img \
   -l NIOAPPS
 ```
@@ -168,7 +183,7 @@ For example, this creates a 16 MiB FAT16 image with 4 KiB clusters:
 
 ```sh
 msdos/scripts/create_msdos_img.py \
-  -i msdos/bin \
+  -i bin/msdos \
   -o ~/8bit/TNFS/msdos/nio-apps-16mb.img \
   --size-mb 16 \
   --fat 16 \

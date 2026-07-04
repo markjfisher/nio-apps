@@ -1,5 +1,7 @@
 #include "fnctl.h"
+#ifdef __MSDOS__
 #include "fn_msdos.h"
+#endif
 #include "fnsvc.h"
 
 #include <stdio.h>
@@ -111,6 +113,7 @@ static void print_entry(uint8_t is_dir, const char *name, uint32_t size,
   lc->count++;
 }
 
+#ifdef __MSDOS__
 static const char *ioctl_detail_name(uint8_t detail)
 {
   switch (detail) {
@@ -148,6 +151,11 @@ static void print_ioctl_diag(void)
          fn_msdos_ioctl_last_diag_expected_len(),
          (unsigned) fn_msdos_ioctl_last_diag_lsr());
 }
+#else
+static void print_ioctl_diag(void)
+{
+}
+#endif
 
 static int current_or_resolved(const char *arg, char *uri, uint16_t uri_cap)
 {

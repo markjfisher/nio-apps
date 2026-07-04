@@ -36,6 +36,7 @@ static uint8_t last_error;
 static uint8_t last_status;
 static uint8_t last_raw_error;
 static uint16_t last_response_len;
+static char list_name[221];
 
 enum {
   NIO_FILE_LIST_FLAG_COMPACT = 0x01,
@@ -213,16 +214,15 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
       uint8_t name_len;
       uint32_t size = 0;
       uint32_t mtime = 0;
-      char name[221];
 
       if ((uint16_t) (pos + 2) > resp_len)
         return fail(FNSVC_ERR_ENTRY_BOUNDS);
       eflags = resp_buf[pos++];
       name_len = resp_buf[pos++];
-      if ((uint16_t) (pos + name_len) > resp_len || name_len >= sizeof(name))
+      if ((uint16_t) (pos + name_len) > resp_len || name_len >= sizeof(list_name))
         return fail(FNSVC_ERR_ENTRY_BOUNDS);
-      memcpy(name, &resp_buf[pos], name_len);
-      name[name_len] = 0;
+      memcpy(list_name, &resp_buf[pos], name_len);
+      list_name[name_len] = 0;
       pos += name_len;
 
       if ((flags & NIO_FILE_LIST_RESP_COMPACT) == 0) {
@@ -233,7 +233,7 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
         pos += 16;
       }
 
-      cb((uint8_t) (eflags & 0x01), name, size, mtime, ctx);
+      cb((uint8_t) (eflags & 0x01), list_name, size, mtime, ctx);
     }
 
     start = (uint16_t) (start + count);

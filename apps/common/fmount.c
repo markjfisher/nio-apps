@@ -76,7 +76,7 @@ int main(int argc, char **argv)
   }
 
   if (!fnctl_set_unit_slot((uint8_t) unit, slot)) {
-    puts("Unable to update FUJINET.SYS drive mapping");
+    puts("Unable to update FujiNet drive mapping");
     return 2;
   }
 
