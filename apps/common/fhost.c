@@ -9,6 +9,9 @@
 static fnctl_state_t state;
 static char uri[FNSVC_MAX_URI + 1];
 static char path[FNSVC_MAX_PATH + 1];
+#ifdef __ATARI__
+static char input_uri[FNSVC_MAX_URI + 1];
+#endif
 
 static void usage(void)
 {
@@ -16,8 +19,31 @@ static void usage(void)
   puts("Usage: FHOST [uri]");
 }
 
+#ifdef __ATARI__
+static const char *prompt_uri(void)
+{
+  char *nl;
+
+  printf("URI (blank=keep): ");
+  fflush(stdout);
+  if (!fgets(input_uri, sizeof(input_uri), stdin))
+    input_uri[0] = 0;
+
+  nl = strchr(input_uri, '\n');
+  if (nl)
+    *nl = 0;
+  nl = strchr(input_uri, '\r');
+  if (nl)
+    *nl = 0;
+
+  return input_uri;
+}
+#endif
+
 int main(int argc, char **argv)
 {
+  const char *target_uri;
+
   if (argc > 2 || (argc > 1 && argv[1][0] == '?')) {
     usage();
     return 1;
@@ -35,10 +61,18 @@ int main(int argc, char **argv)
       printf("HOST: %s\n", state.current_uri);
       printf("PATH: %s\n", state.display_path_len ? state.display_path : "/");
     }
+#ifdef __ATARI__
+    target_uri = prompt_uri();
+    if (!target_uri || !*target_uri)
+      return 0;
+#else
     return 0;
+#endif
+  } else {
+    target_uri = argv[1];
   }
 
-  if (!fnsvc_resolve_path(argv[1], "", uri, sizeof(uri), path, sizeof(path))) {
+  if (!fnsvc_resolve_path(target_uri, "", uri, sizeof(uri), path, sizeof(path))) {
     puts("Unable to resolve URI");
     return 2;
   }

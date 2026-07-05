@@ -15,6 +15,9 @@ typedef struct {
 static fnctl_state_t state_buf;
 static char uri_buf[FNSVC_MAX_URI + 1];
 static char path_buf[FNSVC_MAX_PATH + 1];
+#ifdef __ATARI__
+static char input_buf[FNSVC_MAX_PATH + 1];
+#endif
 
 static void usage(void)
 {
@@ -175,16 +178,44 @@ static int current_or_resolved(const char *arg, char *uri, uint16_t uri_cap)
                             path_buf, sizeof(path_buf));
 }
 
+#ifdef __ATARI__
+static const char *prompt_path(void)
+{
+  char *nl;
+
+  printf("Path (blank=current): ");
+  fflush(stdout);
+  if (!fgets(input_buf, sizeof(input_buf), stdin))
+    input_buf[0] = 0;
+
+  nl = strchr(input_buf, '\n');
+  if (nl)
+    *nl = 0;
+  nl = strchr(input_buf, '\r');
+  if (nl)
+    *nl = 0;
+
+  return input_buf;
+}
+#endif
+
 int main(int argc, char **argv)
 {
   list_ctx_t ctx;
+  const char *path_arg;
 
   if (argc > 2 || (argc > 1 && argv[1][0] == '?')) {
     usage();
     return 1;
   }
 
-  if (!current_or_resolved(argc > 1 ? argv[1] : "", uri_buf, sizeof(uri_buf))) {
+#ifdef __ATARI__
+  path_arg = argc > 1 ? argv[1] : prompt_path();
+#else
+  path_arg = argc > 1 ? argv[1] : "";
+#endif
+
+  if (!current_or_resolved(path_arg, uri_buf, sizeof(uri_buf))) {
     puts("Unable to resolve path");
     print_ioctl_diag();
     return 2;

@@ -276,25 +276,38 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
 
   if (!mount || slot >= FNCTL_MAX_UNITS)
     return 0;
+  last_error = FNSVC_ERR_NONE;
+  last_status = 0;
+  last_raw_error = 0;
+  last_response_len = 0;
   memset(mount, 0, sizeof(*mount));
   req[0] = slot;
 
   if (!service_call(NIO_DEVICEID_FUJI, NIO_FUJI_GET_MOUNT,
-                    req, sizeof(req), resp_buf, sizeof(resp_buf), &status, &resp_len) ||
-      status != FNSVC_STATUS_OK || resp_len < 4 || resp_buf[0] != slot)
-    return 0;
+                    req, sizeof(req), resp_buf, sizeof(resp_buf), &status, &resp_len))
+    return fail(FNSVC_ERR_TRANSPORT);
+
+  last_status = status;
+  last_response_len = resp_len;
+
+  if (status != FNSVC_STATUS_OK)
+    return fail(FNSVC_ERR_STATUS);
+  if (resp_len < 4)
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
+  if (resp_buf[0] != slot)
+    return fail(FNSVC_ERR_BAD_VERSION);
 
   mount->enabled = resp_buf[1] & 0x01;
   off = 3;
   len = resp_buf[2];
   if (off + len + 1 > resp_len)
-    return 0;
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
   memcpy(mount->uri, &resp_buf[off], len);
   mount->uri[len] = 0;
   off += len;
   len = resp_buf[off++];
   if (off + len > resp_len || len >= sizeof(mount->mode))
-    return 0;
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
   memcpy(mount->mode, &resp_buf[off], len);
   mount->mode[len] = 0;
   return 1;

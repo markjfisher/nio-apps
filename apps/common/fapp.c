@@ -11,6 +11,17 @@
 static uint8_t data_buf[CHUNK_SIZE];
 static uint8_t key_data[KEY_DATA_SIZE];
 static char key_name[KEY_NAME_SIZE];
+#ifdef __ATARI__
+static char input_cmd[8];
+static char input_ns[KEY_NAME_SIZE];
+static char input_key[KEY_NAME_SIZE];
+static char input_value[KEY_DATA_SIZE];
+static int do_stat(const char *ns, const char *key);
+static int do_get(const char *ns, const char *key);
+static int do_put(const char *ns, const char *key, const char *value);
+static int do_delete(const char *ns, const char *key);
+static int do_list(const char *ns);
+#endif
 
 static void usage(void)
 {
@@ -39,6 +50,73 @@ static int is_cmd(const char *a, const char *b)
   }
   return *a == 0 && *b == 0;
 }
+
+#ifdef __ATARI__
+static void trim_line(char *s)
+{
+  char *p;
+
+  p = strchr(s, '\n');
+  if (p)
+    *p = 0;
+  p = strchr(s, '\r');
+  if (p)
+    *p = 0;
+}
+
+static const char *prompt_line(const char *label, char *buf, unsigned size)
+{
+  printf("%s: ", label);
+  fflush(stdout);
+  if (!fgets(buf, size, stdin))
+    buf[0] = 0;
+  trim_line(buf);
+  return buf;
+}
+
+static int run_interactive(void)
+{
+  const char *cmd;
+  const char *ns;
+  const char *key;
+  const char *value;
+
+  cmd = prompt_line("Command LIST/STAT/GET/PUT/DEL", input_cmd, sizeof(input_cmd));
+  if (!cmd || !*cmd) {
+    usage();
+    return 1;
+  }
+
+  ns = prompt_line("Namespace", input_ns, sizeof(input_ns));
+  if (!ns || !*ns) {
+    usage();
+    return 1;
+  }
+
+  if (is_cmd(cmd, "LIST"))
+    return do_list(ns);
+
+  key = prompt_line("Key", input_key, sizeof(input_key));
+  if (!key || !*key) {
+    usage();
+    return 1;
+  }
+
+  if (is_cmd(cmd, "STAT"))
+    return do_stat(ns, key);
+  if (is_cmd(cmd, "GET"))
+    return do_get(ns, key);
+  if (is_cmd(cmd, "DEL") || is_cmd(cmd, "DELETE"))
+    return do_delete(ns, key);
+  if (is_cmd(cmd, "PUT")) {
+    value = prompt_line("Value", input_value, sizeof(input_value));
+    return do_put(ns, key, value);
+  }
+
+  usage();
+  return 1;
+}
+#endif
 
 static int fail(const char *what, uint8_t result)
 {
@@ -176,6 +254,11 @@ static int do_list(const char *ns)
 
 int main(int argc, char **argv)
 {
+#ifdef __ATARI__
+  if (argc == 1)
+    return run_interactive();
+#endif
+
   if (argc < 3 || argv[1][0] == '?') {
     usage();
     return 1;

@@ -14,6 +14,10 @@ static void usage(void)
 static fnctl_state_t state;
 static char uri[FNSVC_MAX_URI + 1];
 static char display[FNSVC_MAX_PATH + 1];
+#ifdef __ATARI__
+static char input_slot[4];
+static char input_path[FNSVC_MAX_URI + 1];
+#endif
 
 static int has_scheme(const char *s)
 {
@@ -27,21 +31,63 @@ static int has_scheme(const char *s)
   return 0;
 }
 
+#ifdef __ATARI__
+static void trim_line(char *s)
+{
+  char *p;
+
+  p = strchr(s, '\n');
+  if (p)
+    *p = 0;
+  p = strchr(s, '\r');
+  if (p)
+    *p = 0;
+}
+
+static void prompt_args(uint8_t *slot, const char **path)
+{
+  printf("Slot (blank=0): ");
+  fflush(stdout);
+  if (!fgets(input_slot, sizeof(input_slot), stdin))
+    input_slot[0] = 0;
+  trim_line(input_slot);
+
+  if (input_slot[0])
+    *slot = (uint8_t) atoi(input_slot);
+
+  printf("Image URI/path: ");
+  fflush(stdout);
+  if (!fgets(input_path, sizeof(input_path), stdin))
+    input_path[0] = 0;
+  trim_line(input_path);
+
+  *path = input_path;
+}
+#endif
+
 int main(int argc, char **argv)
 {
   uint8_t slot = 0;
   const char *path;
 
+#ifdef __ATARI__
+  if (argc == 1) {
+    prompt_args(&slot, &path);
+  } else
+#endif
   if (argc < 2 || argc > 3 || (argc > 1 && argv[1][0] == '?')) {
     usage();
     return 1;
-  }
-
-  if (argc == 3) {
+  } else if (argc == 3) {
     slot = (uint8_t) atoi(argv[1]);
     path = argv[2];
   } else {
     path = argv[1];
+  }
+
+  if (!path || !*path) {
+    usage();
+    return 1;
   }
 
   if (slot >= FNCTL_MAX_UNITS) {
