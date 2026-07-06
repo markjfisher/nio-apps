@@ -42,12 +42,31 @@ make all-targets FUJINET_NIO_LIB=../fujinet-nio-lib
 Outputs are written to `build/<target>/bin/`:
 
 - MS-DOS: `fhost.exe`, `fls.exe`, `fin.exe`, `fmount.exe`, `fdrive.exe`,
-  `fapp.exe`
+  `fapp.exe`, `fhttpbin.exe`
 - Atari: `fhost.xex`, `fls.xex`, `fin.xex`, `fmount.xex`, `fdrive.xex`,
-  `fapp.xex`
+  `fapp.xex`, `fhttpbin.xex`
 
 The build invokes `fujinet-nio-lib` for the target-specific raw NIO library when
 needed.
+
+## HTTPBin Smoke App
+
+`fhttpbin` exercises FujiNet-NIO network sessions against an httpbin-compatible
+service. Start the local service from `fujinet-nio` with:
+
+```sh
+../fujinet-nio/scripts/start_test_services.sh http
+```
+
+MS-DOS can pass the base URL directly or use `FN_HTTPBIN_URL`:
+
+```sh
+FHTTPBIN http://127.0.0.1:8080
+```
+
+cc65 targets use the compile-time `FN_DEFAULT_HTTPBIN_URL` value so emulator
+smoke tests can run unattended. Build with `-DFHTTPBIN_PROMPT_URL` if an
+interactive URL prompt is wanted for a manual target build.
 
 ## Disk Images
 
@@ -58,7 +77,9 @@ make -f makefiles/build.mk TARGET=msdos disk FUJINET_NIO_LIB=../fujinet-nio-lib
 make -f makefiles/build.mk TARGET=atari disk FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
-The MS-DOS disk target creates `build/msdos/disk/nio-apps-msdos.img`. The Atari disk
-target currently stages `.xex` files under `build/atari/disk/stage`; ATR
-creation is intentionally isolated to `makefiles/disk-atari.mk` so the final
-tooling can be selected without changing the common build rules.
+The MS-DOS disk target creates `build/msdos/disk/nio-apps-msdos.img`.
+
+The Atari disk target creates `build/atari/disk/nio-apps-atari.atr` with
+`dir2atr`. It stages `.xex` files under `build/atari/disk/stage` and caches
+`picoboot.bin` under `build/atari/cache/atari`. Install `dir2atr` from
+AtariSIO or set `DIR2ATR=/path/to/dir2atr` when invoking make.

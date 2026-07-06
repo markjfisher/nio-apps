@@ -1,6 +1,6 @@
 CC := cl65
 
-ATARI_START_ADDRESS ?= 0x4000
+ATARI_START_ADDRESS ?= 0x2400
 ATARI_LINK_CONFIG ?= makefiles/cc65-atari-nio.cfg
 
 CFLAGS += -Osir -O
