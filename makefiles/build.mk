@@ -18,7 +18,7 @@ OBJ_DIR := $(TARGET_BUILD_DIR)/obj
 BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
-PROGRAMS := fhost fls fin fmount fdrive fapp fhttpbin
+PROGRAMS := fhost fls fin fmount fdrive fapp fhttpbin astest
 PROGRAMS_atari := fsioraw
 PROGRAMS += $(PROGRAMS_$(TARGET))
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
@@ -58,6 +58,9 @@ $(BIN_DIR)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_F
 	$(call link_program)
 
 $(BIN_DIR)/fhttpbin$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/fhttpbin.o $(NIO_LIB_FILE) | $(BIN_DIR)
+	$(call link_program)
+
+$(BIN_DIR)/astest$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/astest.o $(NIO_LIB_FILE) | $(BIN_DIR)
 	$(call link_program)
 
 $(OBJ_DIR):
