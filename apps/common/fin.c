@@ -11,25 +11,11 @@ static void usage(void)
   puts("Usage: FIN [slot] image-uri-or-path");
 }
 
-static fnctl_state_t state;
-static char uri[FNSVC_MAX_URI + 1];
-static char display[FNSVC_MAX_PATH + 1];
+static fnsvc_mount_t mount;
 #ifdef __ATARI__
 static char input_slot[4];
 static char input_path[FNSVC_MAX_URI + 1];
 #endif
-
-static int has_scheme(const char *s)
-{
-  while (*s) {
-    if (*s == ':')
-      return 1;
-    if (*s == '/' || *s == '\\')
-      return 0;
-    s++;
-  }
-  return 0;
-}
 
 #ifdef __ATARI__
 static void trim_line(char *s)
@@ -95,27 +81,14 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  if (has_scheme(path)) {
-    if (!fnsvc_resolve_path(path, "", uri, sizeof(uri), display, sizeof(display))) {
-      puts("Unable to resolve image URI");
-      return 2;
-    }
-  } else {
-    if (!fnctl_get_state(&state) || state.current_uri_len == 0) {
-      puts("No host set. Use FHOST first or pass a full URI.");
-      return 2;
-    }
-    if (!fnsvc_resolve_path(state.current_uri, path, uri, sizeof(uri), display, sizeof(display))) {
-      puts("Unable to resolve image path");
-      return 2;
-    }
-  }
-
-  if (!fnsvc_set_mount(slot, uri, "rw", 1)) {
+  if (!fnsvc_set_mount(slot, path, "rw", 1)) {
     puts("Unable to persist mount slot");
     return 2;
   }
 
-  printf("Slot %u: %s\n", (unsigned) slot, uri);
+  if (fnsvc_get_mount(slot, &mount) && mount.enabled && mount.uri[0])
+    printf("Slot %u: %s\n", (unsigned) slot, mount.uri);
+  else
+    printf("Slot %u: %s\n", (unsigned) slot, path);
   return 0;
 }

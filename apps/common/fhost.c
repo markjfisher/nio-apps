@@ -4,11 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define FHOST_BUILD_ID "nio-state-v2"
+#define FHOST_BUILD_ID "appstore-host-v1"
 
 static fnctl_state_t state;
-static char uri[FNSVC_MAX_URI + 1];
-static char path[FNSVC_MAX_PATH + 1];
 #ifdef __ATARI__
 static char input_uri[FNSVC_MAX_URI + 1];
 #endif
@@ -72,23 +70,18 @@ int main(int argc, char **argv)
     target_uri = argv[1];
   }
 
-  if (!fnsvc_resolve_path(target_uri, "", uri, sizeof(uri), path, sizeof(path))) {
-    puts("Unable to resolve URI");
-    return 2;
-  }
-
-  if (!fnctl_set_state(uri, path)) {
+  if (!fnctl_set_state(target_uri, "")) {
     printf("Unable to store current host (error %u, %s)\n",
            fnctl_last_dos_error(), FHOST_BUILD_ID);
     return 2;
   }
 
-  if (!fnctl_get_state(&state) || strcmp(state.current_uri, uri) != 0) {
+  if (!fnctl_get_state(&state) || state.current_uri_len == 0) {
     puts("Stored host could not be verified (" FHOST_BUILD_ID ")");
     return 2;
   }
 
-  printf("HOST: %s\n", uri);
-  printf("PATH: %s\n", path);
+  printf("HOST: %s\n", state.current_uri);
+  printf("PATH: %s\n", state.display_path_len ? state.display_path : "/");
   return 0;
 }

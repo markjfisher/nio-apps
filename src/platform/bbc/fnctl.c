@@ -7,8 +7,9 @@
 #include <string.h>
 
 #define FNCTL_APP_NS "nio.apps"
-#define FNCTL_KEY_URI "state.uri"
-#define FNCTL_KEY_PATH "state.path"
+#define FNCTL_STATE_NS "fujinet-nio"
+#define FNCTL_KEY_URI "current-host"
+#define FNCTL_KEY_PATH "current-display-path"
 
 static uint16_t last_dos_error;
 static uint8_t read_buf[FNCTL_MAX_URI + 1];
@@ -43,7 +44,7 @@ static int read_key(const char *key, char *dst, uint16_t cap)
     return 0;
 
   dst[0] = 0;
-  result = fn_appstore_read(FNCTL_APP_NS, key, 0, read_buf,
+  result = fn_appstore_read(FNCTL_STATE_NS, key, 0, read_buf,
                             (uint16_t) (cap - 1), &rr);
   if (result != FN_OK || (rr.flags & FN_APPSTORE_READ_EXISTS) == 0)
     return 0;
@@ -60,7 +61,7 @@ static int write_key(const char *key, const char *value)
 {
   fn_appstore_write_t wr;
   uint16_t len = (uint16_t) strlen(value);
-  uint8_t result = fn_appstore_write(FNCTL_APP_NS, key, 0,
+  uint8_t result = fn_appstore_write(FNCTL_STATE_NS, key, 0,
                                      (const uint8_t *) value, len, &wr);
   return result == FN_OK && wr.bytes_written == len;
 }
@@ -99,7 +100,7 @@ int fnctl_set_state(const char *uri, const char *display_path)
     return 0;
   if (strlen(uri) > FNCTL_MAX_URI || strlen(display_path) > FNCTL_MAX_PATH)
     return 0;
-  return write_key(FNCTL_KEY_URI, uri) && write_key(FNCTL_KEY_PATH, display_path);
+  return write_key(FNCTL_KEY_URI, uri);
 }
 
 int fnctl_get_unit_slot(uint8_t unit, uint8_t *slot)

@@ -34,9 +34,6 @@ typedef void (*fnsvc_list_cb)(uint8_t is_dir,
                               uint32_t mtime,
                               void *ctx);
 
-int fnsvc_resolve_path(const char *base_uri, const char *arg,
-                       char *resolved_uri, uint16_t resolved_cap,
-                       char *display_path, uint16_t display_cap);
 int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx);
 int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount);
 int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled);

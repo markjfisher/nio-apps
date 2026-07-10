@@ -24,8 +24,7 @@ enum {
 
 enum {
   NIO_FILE_VERSION = 1,
-  NIO_FILE_LIST_DIRECTORY = 0x02,
-  NIO_FILE_RESOLVE_PATH = 0x05
+  NIO_FILE_LIST_DIRECTORY = 0x02
 };
 
 static uint8_t req_buf[FNCTL_MAX_DATA];
@@ -93,63 +92,6 @@ static uint32_t get_u32le(const uint8_t *p)
       | ((uint32_t) p[3] << 24);
 }
 
-static int copy_string(char *dst, uint16_t cap, const uint8_t *src, uint16_t len)
-{
-  if (cap == 0 || len >= cap)
-    return 0;
-  memcpy(dst, src, len);
-  dst[len] = 0;
-  return 1;
-}
-
-int fnsvc_resolve_path(const char *base_uri, const char *arg,
-                       char *resolved_uri, uint16_t resolved_cap,
-                       char *display_path, uint16_t display_cap)
-{
-  uint16_t base_len = (uint16_t) strlen(base_uri);
-  uint16_t arg_len = (uint16_t) strlen(arg ? arg : "");
-  uint16_t off = 0;
-  uint16_t resp_len = 0;
-  uint8_t status = 0;
-  uint16_t uri_len;
-  uint16_t path_len;
-
-  if (base_len == 0 || 1 + 2 + base_len + 2 + arg_len > sizeof(req_buf))
-    return 0;
-
-  req_buf[off++] = NIO_FILE_VERSION;
-  put_u16le(&req_buf[off], base_len);
-  off += 2;
-  memcpy(&req_buf[off], base_uri, base_len);
-  off += base_len;
-  put_u16le(&req_buf[off], arg_len);
-  off += 2;
-  if (arg_len) {
-    memcpy(&req_buf[off], arg, arg_len);
-    off += arg_len;
-  }
-
-  if (!service_call(NIO_DEVICEID_FILE, NIO_FILE_RESOLVE_PATH,
-                    req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) ||
-      status != FNSVC_STATUS_OK || resp_len < 8 || resp_buf[0] != NIO_FILE_VERSION)
-    return 0;
-
-  off = 4;
-  uri_len = get_u16le(&resp_buf[off]);
-  off += 2;
-  if (off + uri_len + 2 > resp_len)
-    return 0;
-  if (!copy_string(resolved_uri, resolved_cap, &resp_buf[off], uri_len))
-    return 0;
-  off += uri_len;
-
-  path_len = get_u16le(&resp_buf[off]);
-  off += 2;
-  if (off + path_len > resp_len)
-    return 0;
-  return copy_string(display_path, display_cap, &resp_buf[off], path_len);
-}
-
 int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
 {
   uint16_t uri_len = (uint16_t) strlen(uri);
@@ -157,7 +99,7 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
   uint8_t status;
   uint16_t resp_len;
 
-  if (!cb || uri_len == 0)
+  if (!cb)
     return fail(FNSVC_ERR_INVALID_ARG);
 
   last_error = FNSVC_ERR_NONE;

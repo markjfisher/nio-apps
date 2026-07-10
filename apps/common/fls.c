@@ -1,4 +1,3 @@
-#include "fnctl.h"
 #ifdef __MSDOS__
 #include "fn_msdos.h"
 #endif
@@ -12,9 +11,7 @@ typedef struct {
   unsigned count;
 } list_ctx_t;
 
-static fnctl_state_t state_buf;
 static char uri_buf[FNSVC_MAX_URI + 1];
-static char path_buf[FNSVC_MAX_PATH + 1];
 #ifdef __ATARI__
 static char input_buf[FNSVC_MAX_PATH + 1];
 #endif
@@ -162,22 +159,15 @@ static void print_ioctl_diag(void)
 }
 #endif
 
-static int current_or_resolved(const char *arg, char *uri, uint16_t uri_cap)
+static int target_spec(const char *arg, char *uri, uint16_t uri_cap)
 {
-  if (!fnctl_get_state(&state_buf) || state_buf.current_uri_len == 0) {
-    puts("No host set. Use FHOST first.");
+  uint16_t len = (uint16_t) strlen(arg ? arg : "");
+  if (len >= uri_cap)
     return 0;
-  }
-
-  if (!arg || !*arg) {
-    if (strlen(state_buf.current_uri) >= uri_cap)
-      return 0;
-    strcpy(uri, state_buf.current_uri);
-    return 1;
-  }
-
-  return fnsvc_resolve_path(state_buf.current_uri, arg, uri, uri_cap,
-                            path_buf, sizeof(path_buf));
+  if (len)
+    memcpy(uri, arg, len);
+  uri[len] = 0;
+  return 1;
 }
 
 #ifdef __ATARI__
@@ -217,8 +207,8 @@ int main(int argc, char **argv)
   path_arg = argc > 1 ? argv[1] : "";
 #endif
 
-  if (!current_or_resolved(path_arg, uri_buf, sizeof(uri_buf))) {
-    puts("Unable to resolve path");
+  if (!target_spec(path_arg, uri_buf, sizeof(uri_buf))) {
+    puts("Bad path");
     print_ioctl_diag();
     return 2;
   }
