@@ -2,8 +2,6 @@
 
 #include "fnctl.h"
 
-#include "fn_raw.h"
-
 #include <stddef.h>
 #include <string.h>
 
@@ -49,6 +47,13 @@ enum {
 #define FNSVC_LIST_MAX_PAYLOAD 420
 #endif
 
+static void zero_bytes(void *ptr, uint16_t len)
+{
+  uint8_t *p = (uint8_t *) ptr;
+  while (len--)
+    *p++ = 0;
+}
+
 static int fail(uint8_t error)
 {
   last_error = error;
@@ -60,18 +65,12 @@ static int service_call(uint8_t device, uint8_t command,
                         void *response, uint16_t response_capacity,
                         uint8_t *status, uint16_t *response_len)
 {
-  fn_raw_response_t raw;
-  uint8_t result;
-
-  result = fn_raw_call(device, command, request, request_len,
-                       response, response_capacity, &raw);
-  last_raw_error = result;
-  if (result != 0)
+  if (!fnctl_nio_call(device, command, request, request_len,
+                      response, response_capacity, status, response_len)) {
+    last_raw_error = (uint8_t) fnctl_last_dos_error();
     return 0;
-  if (status)
-    *status = raw.status;
-  if (response_len)
-    *response_len = raw.payload_length;
+  }
+  last_raw_error = 0;
   return 1;
 }
 
@@ -280,7 +279,7 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
   last_status = 0;
   last_raw_error = 0;
   last_response_len = 0;
-  memset(mount, 0, sizeof(*mount));
+  zero_bytes(mount, sizeof(*mount));
   req[0] = slot;
 
   if (!service_call(NIO_DEVICEID_FUJI, NIO_FUJI_GET_MOUNT,

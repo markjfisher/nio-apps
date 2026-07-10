@@ -1,4 +1,4 @@
-TARGETS := msdos atari
+TARGETS := msdos atari bbc bbc-clib
 DEFAULT_TARGET := $(if $(TARGET),$(TARGET),all-targets)
 
 .PHONY: all all-targets clean disk disk-all $(TARGETS)

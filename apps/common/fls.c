@@ -6,7 +6,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifndef __CC65__
 #include <time.h>
+#endif
 
 typedef struct {
   unsigned count;
@@ -61,8 +63,65 @@ static void format_size(char *out, uint32_t size)
     sprintf(out, "%5u%c", whole, suffix[unit]);
 }
 
+#ifdef __CC65__
+static uint8_t is_leap_year(uint16_t year)
+{
+  if ((year % 4) != 0)
+    return 0;
+  if ((year % 100) != 0)
+    return 1;
+  return (year % 400) == 0;
+}
+
+static void format_unix_date(char *out, uint32_t mtime)
+{
+  static const char *months[] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  };
+  static const uint8_t month_days[] = {
+    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+  };
+  uint32_t days;
+  uint16_t year;
+  uint8_t month;
+  uint8_t dim;
+
+  if (mtime == 0) {
+    strcpy(out, "?? ??? ??:??");
+    return;
+  }
+
+  days = mtime / (60UL * 60UL * 24UL);
+
+  year = 1970;
+  for (;;) {
+    uint16_t diy = is_leap_year(year) ? 366 : 365;
+    if (days < diy)
+      break;
+    days -= diy;
+    year++;
+  }
+
+  for (month = 0; month < 12; month++) {
+    dim = month_days[month];
+    if (month == 1 && is_leap_year(year))
+      dim = 29;
+    if (days < dim)
+      break;
+    days -= dim;
+  }
+
+  sprintf(out, "%2u %s %4u", (unsigned)(days + 1), months[month],
+          (unsigned)year);
+}
+#endif
+
 static void format_date(char *out, uint32_t mtime)
 {
+#ifdef __CC65__
+  format_unix_date(out, mtime);
+#else
   static const char *months[] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
@@ -97,6 +156,7 @@ static void format_date(char *out, uint32_t mtime)
             tmv->tm_hour, tmv->tm_min);
   else
     sprintf(out, "%2d %s %4d", tmv->tm_mday, months[tmv->tm_mon], year);
+#endif
 }
 
 static void print_entry(uint8_t is_dir, const char *name, uint32_t size,
