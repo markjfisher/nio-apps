@@ -65,6 +65,11 @@ static void print_time_raw(FN_TIME_T *time)
     printf("\n");
 }
 
+static void clear_time_string(char *buf)
+{
+    memset(buf, 0, FN_MAX_TIME_STRING);
+}
+
 /* ============================================================================
  * Main Program
  * ============================================================================
@@ -103,6 +108,7 @@ int main(void)
      * Test 1: Get current time as FujiNet-formatted UTC ISO
      * ======================================================================== */
     printf("--- Test 1: Get Current Time (UTC ISO) ---\n");
+    clear_time_string(iso_time);
     result = fn_clock_get_format((uint8_t*)iso_time, FN_TIME_FORMAT_UTC_ISO);
     if (result != FN_OK) {
         printf("Failed to get time: %s\n", fn_error_string(result));
@@ -133,6 +139,7 @@ int main(void)
      * Test 3: Get time in ISO 8601 format (with timezone)
      * ======================================================================== */
     printf("--- Test 3: Get Time (ISO 8601 with TZ) ---\n");
+    clear_time_string(iso_time);
     result = fn_clock_get_format((uint8_t*)iso_time, FN_TIME_FORMAT_TZ_ISO);
     if (result == FN_OK) {
         printf("Local time: %s\n", iso_time);
@@ -199,6 +206,7 @@ int main(void)
     printf("--- Test 6: Time for Specific Timezone ---\n");
     
     /* Try Pacific Time */
+    clear_time_string(iso_time);
     result = fn_clock_get_tz((uint8_t*)iso_time, "PST8PDT,M3.2.0,M11.1.0", FN_TIME_FORMAT_TZ_ISO);
     if (result == FN_OK) {
         printf("Pacific Time: %s\n", iso_time);
@@ -207,6 +215,7 @@ int main(void)
     }
     
     /* Try Central European Time */
+    clear_time_string(iso_time);
     result = fn_clock_get_tz((uint8_t*)iso_time, "CET-1CEST,M3.5.0,M10.5.0/3", FN_TIME_FORMAT_TZ_ISO);
     if (result == FN_OK) {
         printf("Central European Time: %s\n", iso_time);
@@ -224,6 +233,7 @@ int main(void)
         printf("Timezone set to EST5EDT\n");
         
         /* Get time in new timezone */
+        clear_time_string(iso_time);
         result = fn_clock_get_format((uint8_t*)iso_time, FN_TIME_FORMAT_TZ_ISO);
         if (result == FN_OK) {
             printf("Eastern Time: %s\n", iso_time);
@@ -258,6 +268,7 @@ int main(void)
     }
     
     /* Get the time back to verify */
+    clear_time_string(iso_time);
     result = fn_clock_get_format((uint8_t*)iso_time, FN_TIME_FORMAT_UTC_ISO);
     if (result == FN_OK) {
         printf("UTC time: %s\n", iso_time);
@@ -276,6 +287,9 @@ int main(void)
         printf("(This may fail if network is not available)\n");
     } else {
         printf("Time synchronized from network.\n");
+        printf("Returned raw network time: ");
+        print_time_raw(&current_time);
+        clear_time_string(iso_time);
         result = fn_clock_get_format((uint8_t*)iso_time, FN_TIME_FORMAT_UTC_ISO);
         if (result == FN_OK) {
             printf("UTC time: %s\n", iso_time);
