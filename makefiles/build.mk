@@ -19,13 +19,16 @@ BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 PROGRAMS := fhost fls fin fout fmount fdrive fapp fhttpbin astest clock
+PROGRAMS_msdos := nioprobe nioread
 PROGRAMS_atari := fsioraw
-PROGRAMS += $(PROGRAMS_$(TARGET))
+PROGRAMS += $(if $(filter msdos,$(TARGET)),,$(PROGRAMS_$(TARGET)))
+MSDOS_PROGRAMS := $(if $(filter msdos,$(TARGET)),$(PROGRAMS_msdos))
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
 APP_OBJS := $(PROGRAMS:%=$(OBJ_DIR)/$(APP_DIR)/%.o)
-PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT))
-DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d)
+MSDOS_LIB_OBJS := $(if $(filter msdos,$(TARGET)),$(OBJ_DIR)/msdos/lib/nio.o)
+PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT)) $(MSDOS_PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT))
+DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d) $(MSDOS_LIB_OBJS:.o=.d)
 
 ifeq ($(COMPILER_FAMILY),wcc)
 include makefiles/compiler-wcc.mk
@@ -64,6 +67,16 @@ $(BIN_DIR)/astest$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/astest.o $(NIO_LIB_FILE) 
 	$(call link_program)
 
 $(BIN_DIR)/clock$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/clock.o $(NIO_LIB_FILE) | $(BIN_DIR)
+	$(call link_program)
+
+$(OBJ_DIR)/msdos/%.o: msdos/%.c | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(call compile_c)
+
+$(BIN_DIR)/nioprobe$(PROGRAM_EXT): $(OBJ_DIR)/msdos/apps/nioprobe.o $(MSDOS_LIB_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
+	$(call link_program)
+
+$(BIN_DIR)/nioread$(PROGRAM_EXT): $(OBJ_DIR)/msdos/apps/nioread.o $(MSDOS_LIB_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
 	$(call link_program)
 
 $(OBJ_DIR):

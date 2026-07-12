@@ -10,11 +10,10 @@ static uint8_t sector[1024];
 
 static void print_usage(void)
 {
-  puts("Usage: NIOREAD [slot] [lba] [bytes] [com]");
+  puts("Usage: NIOREAD [slot] [lba] [bytes]");
   puts("  slot defaults to 1");
   puts("  lba defaults to 0");
   puts("  bytes defaults to 512");
-  puts("  com defaults to 1");
 }
 
 static void hexdump(const uint8_t *buf, uint16_t len)
@@ -44,12 +43,11 @@ int main(int argc, char **argv)
   uint8_t slot = 1;
   uint32_t lba = 0;
   unsigned bytes = 512;
-  unsigned com = 1;
   uint16_t bytes_read = 0;
   nio_response_t response;
   uint8_t init_result;
 
-  if (argc > 5 || (argc > 1 && argv[1][0] == '?')) {
+  if (argc > 4 || (argc > 1 && argv[1][0] == '?')) {
     print_usage();
     return 1;
   }
@@ -60,22 +58,14 @@ int main(int argc, char **argv)
     lba = strtoul(argv[2], 0, 0);
   if (argc > 3)
     bytes = (unsigned) atoi(argv[3]);
-  if (argc > 4)
-    com = (unsigned) atoi(argv[4]);
 
   if (bytes == 0 || bytes > sizeof(sector)) {
     print_usage();
     return 1;
   }
 
-  if (com < 1 || com > 4) {
-    print_usage();
-    return 1;
-  }
-
-  printf("NIOREAD slot %u lba %lu bytes %u COM%u\r\n",
-         (unsigned) slot, lba, bytes, com);
-  fn_msdos_serial_set_com((uint8_t) com);
+  printf("NIOREAD slot %u lba %lu bytes %u\r\n",
+         (unsigned) slot, lba, bytes);
   init_result = fn_init();
   if (init_result != 0) {
     printf("NIO init failed: %u\r\n", (unsigned) init_result);

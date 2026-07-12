@@ -8,9 +8,8 @@
 
 static void print_usage(void)
 {
-  puts("Usage: NIOPROBE [slot] [com]");
+  puts("Usage: NIOPROBE [slot]");
   puts("  slot defaults to 1");
-  puts("  com defaults to 1");
 }
 
 static void print_flags(uint8_t flags)
@@ -34,28 +33,19 @@ static void print_flags(uint8_t flags)
 int main(int argc, char **argv)
 {
   uint8_t slot = 1;
-  unsigned com = 1;
   nio_disk_info_t info;
   nio_response_t response;
   uint8_t init_result;
 
-  if (argc > 3 || (argc > 1 && argv[1][0] == '?')) {
+  if (argc > 2 || (argc > 1 && argv[1][0] == '?')) {
     print_usage();
     return 1;
   }
 
   if (argc > 1)
     slot = (uint8_t) atoi(argv[1]);
-  if (argc > 2)
-    com = (unsigned) atoi(argv[2]);
 
-  if (com < 1 || com > 4) {
-    print_usage();
-    return 1;
-  }
-
-  printf("NIOPROBE slot %u COM%u\r\n", (unsigned) slot, com);
-  fn_msdos_serial_set_com((uint8_t) com);
+  printf("NIOPROBE slot %u\r\n", (unsigned) slot);
   init_result = fn_init();
   if (init_result != 0) {
     printf("NIO init failed: %u\r\n", (unsigned) init_result);
