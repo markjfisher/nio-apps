@@ -18,7 +18,7 @@ OBJ_DIR := $(TARGET_BUILD_DIR)/obj
 BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
-PROGRAMS := fhost fls fin fmount fdrive fapp fhttpbin astest clock
+PROGRAMS := fhost fls fin fout fmount fdrive fapp fhttpbin astest clock
 PROGRAMS_atari := fsioraw
 PROGRAMS += $(PROGRAMS_$(TARGET))
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c

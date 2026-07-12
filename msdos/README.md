@@ -39,7 +39,7 @@ The makefile builds the required `fujinet-nio-lib` MS-DOS backend archives
 automatically:
 
 - `fujinet-nio-msdos-ioctl.lib` for `FHOST.EXE`, `FLS.EXE`, `FIN.EXE`,
-  `FMOUNT.EXE`, `FDRIVE.EXE`, and `FAPP.EXE`.
+  `FOUT.EXE`, `FMOUNT.EXE`, `FDRIVE.EXE`, and `FAPP.EXE`.
 
 `NIOPROBE.EXE` and `NIOREAD.EXE` remain MS-DOS-only direct serial experiments in
 `msdos/apps/`; they are not part of the shared target build.
@@ -104,6 +104,9 @@ same DOS request. Set `FUJI_AUTO_DOWNSHIFT=0` to disable that behavior, or
   - Lists the current URI or a path relative to it.
 - `FIN.EXE [slot] image-uri-or-path`
   - Persists an image URI into a FujiNet mount slot. `slot` defaults to `0`.
+- `FOUT.EXE slot`
+  - Clears a persisted FujiNet mount slot. Cleared slots are not shown by
+    `FDRIVE.EXE`.
 - `FMOUNT.EXE slot [drive:] [RO|RW]`
   - Live-mounts the persisted slot through DiskService and maps the DOS drive
     unit to that slot. If `drive:` is omitted, the tool uses the FujiNet drive
@@ -149,6 +152,7 @@ FIN 0 images/DOS622.IMG
 FMOUNT 0 D: RW
 D:
 DIR
+FOUT 0
 ```
 
 The command tools use 0-based FujiNet mount slots for user interaction. The
