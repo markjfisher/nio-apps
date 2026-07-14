@@ -20,6 +20,7 @@ DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 PROGRAMS := fhost fls fin fout fmount fdrive fapp fhttpbin astest clock
 PROGRAMS_msdos := nioprobe nioread
+PROGRAMS_msdos += irqmon
 PROGRAMS_atari := fsioraw
 PROGRAMS += $(if $(filter msdos,$(TARGET)),,$(PROGRAMS_$(TARGET)))
 MSDOS_PROGRAMS := $(if $(filter msdos,$(TARGET)),$(PROGRAMS_msdos))
@@ -77,6 +78,9 @@ $(BIN_DIR)/nioprobe$(PROGRAM_EXT): $(OBJ_DIR)/msdos/apps/nioprobe.o $(MSDOS_LIB_
 	$(call link_program)
 
 $(BIN_DIR)/nioread$(PROGRAM_EXT): $(OBJ_DIR)/msdos/apps/nioread.o $(MSDOS_LIB_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
+	$(call link_program)
+
+$(BIN_DIR)/irqmon$(PROGRAM_EXT): $(OBJ_DIR)/msdos/apps/irqmon.o | $(BIN_DIR)
 	$(call link_program)
 
 $(OBJ_DIR):
