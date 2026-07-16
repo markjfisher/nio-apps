@@ -17,6 +17,7 @@ The shared `F*` applications currently build for:
 
 - `msdos`, using Open Watcom and the MS-DOS IOCTL backend.
 - `atari`, using cc65 and the Atari FujiBus backend.
+- `bbc` and `bbc-clib`, using cc65 and the BBC Tube/serial backends.
 
 ## Build
 
@@ -41,13 +42,16 @@ make all-targets FUJINET_NIO_LIB=../fujinet-nio-lib
 
 Outputs are written to `build/<target>/bin/`:
 
-- MS-DOS: `fhost.exe`, `fls.exe`, `fin.exe`, `fmount.exe`, `fdrive.exe`,
-  `fapp.exe`, `fhttpbin.exe`, `astest.exe`
-- Atari: `fhost.xex`, `fls.xex`, `fin.xex`, `fmount.xex`, `fdrive.xex`,
-  `fapp.xex`, `fhttpbin.xex`, `astest.xex`
+- MS-DOS: `.exe`
+- Atari: `.xex`
+- BBC: extensionless program binaries
 
-The build invokes `fujinet-nio-lib` for the target-specific raw NIO library when
-needed.
+Common apps are discovered from `apps/common/*.c`. MS-DOS-specific apps are
+discovered from `msdos/apps/*.c`. Add target-specific exclusions in
+`makefiles/build.mk` only when a source file cannot build for that target.
+
+The build invokes `fujinet-nio-lib` for the target-specific raw NIO library
+when needed.
 
 ## HTTPBin Smoke App
 
@@ -107,8 +111,9 @@ be inspected before the runner cleans it up.
 Disk-image packaging is target-specific:
 
 ```sh
-make -f makefiles/build.mk TARGET=msdos disk FUJINET_NIO_LIB=../fujinet-nio-lib
-make -f makefiles/build.mk TARGET=atari disk FUJINET_NIO_LIB=../fujinet-nio-lib
+make TARGET=msdos disk FUJINET_NIO_LIB=../fujinet-nio-lib
+make TARGET=atari disk FUJINET_NIO_LIB=../fujinet-nio-lib
+make TARGET=bbc disk FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
 The MS-DOS disk target creates `build/msdos/disk/nio-apps-msdos.img`.
@@ -117,3 +122,45 @@ The Atari disk target creates `build/atari/disk/nio-apps-atari.atr` with
 `dir2atr`. It stages `.xex` files under `build/atari/disk/stage` and caches
 `picoboot.bin` under `build/atari/cache/atari`. Install `dir2atr` from
 AtariSIO or set `DIR2ATR=/path/to/dir2atr` when invoking make.
+
+## Boot Disks
+
+The `boot-disk/` project creates small platform config disks from files listed
+in `boot-disk/manifests/<platform>.yaml`.
+
+```sh
+make TARGET=msdos boot-disk
+make TARGET=atari boot-disk
+make TARGET=bbc boot-disk
+make boot-disk-all
+```
+
+The platform manifest controls the disk contents:
+
+```yaml
+apps:
+  - src: ${BOOT_DISK_BIN}/fhost.exe
+    name: FHOST.EXE
+  - src: boot-disk/files/msdos/AUTORUN.BAT
+    name: AUTOEXEC.BAT
+```
+
+Manifest `src` paths support shell-style environment expansion, including
+`${BOOT_DISK_BIN}`, and relative paths are resolved from the `nio-apps`
+repository root. Optional entries can use `required: false`.
+
+Generated images are written under `build/<target>/disk/boot/`:
+
+- MS-DOS: `autorun.img`
+- Atari: `autorun.atr`
+- BBC: `autorun.ssd`
+
+To seed a neighboring `fujinet-nio` checkout:
+
+```sh
+make TARGET=atari install-boot-disk FUJINET_NIO=../fujinet-nio
+```
+
+That installs to `distfiles/boot/<platform>/` and
+`distfiles/esp32-data/boot/<platform>/` so `fujinet-nio` boot profiles can
+select the matching image with `boot.config_uri`.

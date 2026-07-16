@@ -76,22 +76,23 @@ The NIO driver also accepts DOS 2.x-safe `CONFIG.SYS` options for serial speed
 and disk batching:
 
 ```dos
-DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=115200 FUJI_BATCH_SECTORS=16 FUJI_READAHEAD_SECTORS=16 FUJI_IO_RETRIES=2
+DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=115200 FUJI_BATCH_SECTORS=16 FUJI_IO_RETRIES=2
 ```
 
-Keep the `16/16` disk defaults for modern emulators and real machines where the
-serial path is reliable. They are what make hosted-disk `DIR` operations usable.
+Keep the 16-sector disk batch default for modern emulators and real machines
+where the serial path is reliable. It is what makes hosted-disk `DIR` operations
+usable without speculative over-read.
 For 86Box XT/8250 named-pipe testing, first try only lowering the baud rate:
 
 ```dos
-DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=19200 FUJI_BATCH_SECTORS=16 FUJI_READAHEAD_SECTORS=16 FUJI_IO_RETRIES=2
+DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=19200 FUJI_BATCH_SECTORS=16 FUJI_IO_RETRIES=2
 ```
 
-Only reduce `FUJI_BATCH_SECTORS` and `FUJI_READAHEAD_SECTORS` for a specific
-backend that proves it cannot tolerate larger framed responses.
+Only reduce `FUJI_BATCH_SECTORS` for a specific backend that proves it cannot
+tolerate larger framed responses.
 
 By default the driver also enables adaptive downshift. It still starts with the
-configured `16/16` read size, but if a large SLIP frame is truncated or fails
+configured batch size, but if a large SLIP frame is truncated or fails
 checksum it reduces future read batches to half the failed size and retries the
 same DOS request. Set `FUJI_AUTO_DOWNSHIFT=0` to disable that behavior, or
 `FUJI_DEBUG_IO=1` to print each recovered retry while debugging.
@@ -194,6 +195,29 @@ msdos/scripts/create_msdos_img.py \
   --cluster-sectors 8 \
   -l NIO16MB
 ```
+
+Avoid very small FAT16 images for MS-DOS driver testing. An 8 MiB FAT16 image
+can be made valid enough for `mkfs.fat`, `mcopy`, and `mdir`, for example with
+`--cluster-sectors 1` or `--cluster-sectors 2`, but MS-DOS may raise `Divide
+overflow` when `DIR` asks the FujiNet block driver to build the BPB and then
+walk the FAT/root directory. The FujiNet transport is not failing in that case:
+the log shows ordinary 512-byte sector reads, usually followed by DOS crashing
+while using the small FAT16 BPB values.
+
+For an 8 MiB test image, use FAT12 with 4 sectors per cluster:
+
+```sh
+msdos/scripts/create_msdos_img.py \
+  -i build/msdos/bin \
+  -o ~/8bit/TNFS/msdos/nio-apps-8mb.img \
+  --size-mb 8 \
+  --fat 12 \
+  --cluster-sectors 4 \
+  -l NIO8MB
+```
+
+For FAT16 compatibility tests, use 16 MiB or larger. The default FAT16
+`--cluster-sectors 8` layout is intended for those larger images, not for 8 MiB.
 
 QEMU-compatible tools for this workflow are:
 

@@ -1,0 +1,18 @@
+# Paths support shell-style environment expansion (${VAR}) and ~.
+# Relative paths are resolved from the nio-apps repository root.
+
+apps:
+  - src: ${BOOT_DISK_BIN}/fhost
+    name: FHOST
+  - src: ${BOOT_DISK_BIN}/fls
+    name: FLS
+  - src: ${BOOT_DISK_BIN}/fin
+    name: FIN
+  - src: ${BOOT_DISK_BIN}/fmount
+    name: FMOUNT
+  - src: ${BOOT_DISK_BIN}/fdrive
+    name: FDRIVE
+  - src: ${BOOT_DISK_BIN}/fapp
+    name: FAPP
+  - src: ${BOOT_DISK_BIN}/clock
+    name: CLOCK
