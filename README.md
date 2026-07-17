@@ -161,6 +161,5 @@ To seed a neighboring `fujinet-nio` checkout:
 make TARGET=atari install-boot-disk FUJINET_NIO=../fujinet-nio
 ```
 
-That installs to `distfiles/boot/<platform>/` and
-`distfiles/esp32-data/boot/<platform>/` so `fujinet-nio` boot profiles can
-select the matching image with `boot.config_uri`.
+That installs to `distfiles/esp32-data/boot/<platform>/`, which is the
+filesystem input packaged by `fujinet-nio` when running `./build.sh -f`.

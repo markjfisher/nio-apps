@@ -13,6 +13,8 @@ apps:
     name: FIN.EXE
   - src: ${BOOT_DISK_BIN}/fmount.exe
     name: FMOUNT.EXE
+  - src: ${BOOT_DISK_BIN}/fboot.exe
+    name: FBOOT.EXE
   - src: ${BOOT_DISK_BIN}/fdrive.exe
     name: FDRIVE.EXE
   - src: ${BOOT_DISK_BIN}/fapp.exe

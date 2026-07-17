@@ -19,7 +19,8 @@ enum {
 enum {
   NIO_DISK_VERSION = 1,
   NIO_DISK_MOUNT = 0x01,
-  NIO_DISK_UNMOUNT = 0x02
+  NIO_DISK_UNMOUNT = 0x02,
+  NIO_DISK_RESTORE_BOOT = 0x0A
 };
 
 enum {
@@ -328,4 +329,35 @@ int fnsvc_disk_unmount(uint8_t slot)
   return service_call(NIO_DEVICEID_DISK, NIO_DISK_UNMOUNT,
                       req_buf, 2, resp_buf, 16, &status, &resp_len) &&
          status == FNSVC_STATUS_OK;
+}
+
+int fnsvc_disk_restore_boot(uint8_t slot)
+{
+  uint8_t status;
+  uint16_t resp_len;
+
+  if (slot >= FNCTL_MAX_UNITS)
+    return 0;
+  last_error = FNSVC_ERR_NONE;
+  last_status = 0;
+  last_raw_error = 0;
+  last_response_len = 0;
+
+  req_buf[0] = NIO_DISK_VERSION;
+  req_buf[1] = (uint8_t) (slot + 1);
+
+  if (!service_call(NIO_DEVICEID_DISK, NIO_DISK_RESTORE_BOOT,
+                    req_buf, 2, resp_buf, 16, &status, &resp_len))
+    return fail(FNSVC_ERR_TRANSPORT);
+
+  last_status = status;
+  last_response_len = resp_len;
+
+  if (status != FNSVC_STATUS_OK)
+    return fail(FNSVC_ERR_STATUS);
+  if (resp_len < 12)
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
+  if (resp_buf[0] != NIO_DISK_VERSION)
+    return fail(FNSVC_ERR_BAD_VERSION);
+  return 1;
 }

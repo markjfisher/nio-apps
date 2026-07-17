@@ -24,13 +24,8 @@ To copy the generated image into the matching FujiNet-NIO boot asset folders:
 make TARGET=atari install-boot-disk FUJINET_NIO=../fujinet-nio
 ```
 
-This installs to:
-
-- `distfiles/boot/<platform>/`
-- `distfiles/esp32-data/boot/<platform>/`
-
-FujiNet-NIO platform profiles can then point `boot.config_uri` at the matching
-platform image.
+This installs to `distfiles/esp32-data/boot/<platform>/`, which is the
+filesystem input packaged by `fujinet-nio` when running `./build.sh -f`.
 
 Files under `files/` are not copied just because they exist. List every disk
 entry in the platform YAML manifest:

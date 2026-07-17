@@ -8,7 +8,6 @@ BOOT_DISK_STAGE_MANIFEST ?= $(BOOT_DISK_DIR)/scripts/stage_manifest.py
 
 FUJINET_NIO ?= ../fujinet-nio
 BOOT_DISK_INSTALL_PLATFORM ?= $(PLATFORM)
-FUJINET_NIO_BOOT_DIR ?= $(FUJINET_NIO)/distfiles/boot/$(BOOT_DISK_INSTALL_PLATFORM)
 FUJINET_NIO_ESP32_BOOT_DIR ?= $(FUJINET_NIO)/distfiles/esp32-data/boot/$(BOOT_DISK_INSTALL_PLATFORM)
 
 BOOT_ATARI_IMAGE ?= $(BOOT_DISK_OUTPUT_DIR)/autorun.atr
@@ -51,10 +50,9 @@ boot-disk-msdos: all | $(BOOT_DISK_OUTPUT_DIR)
 	@echo "Created MS-DOS boot disk: $(BOOT_MSDOS_IMAGE)"
 
 install-boot-disk: boot-disk
-	mkdir -p "$(FUJINET_NIO_BOOT_DIR)" "$(FUJINET_NIO_ESP32_BOOT_DIR)"
-	cp "$(BOOT_DISK_IMAGE)" "$(FUJINET_NIO_BOOT_DIR)/"
+	mkdir -p "$(FUJINET_NIO_ESP32_BOOT_DIR)"
 	cp "$(BOOT_DISK_IMAGE)" "$(FUJINET_NIO_ESP32_BOOT_DIR)/"
-	@echo "Installed boot disk to $(FUJINET_NIO_BOOT_DIR) and $(FUJINET_NIO_ESP32_BOOT_DIR)"
+	@echo "Installed boot disk to $(FUJINET_NIO_ESP32_BOOT_DIR)"
 
 $(BOOT_DISK_OUTPUT_DIR):
 	mkdir -p $@

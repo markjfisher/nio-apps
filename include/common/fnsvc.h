@@ -39,6 +39,7 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount);
 int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled);
 int fnsvc_disk_mount(uint8_t slot, const char *uri, uint8_t readonly);
 int fnsvc_disk_unmount(uint8_t slot);
+int fnsvc_disk_restore_boot(uint8_t slot);
 uint8_t fnsvc_last_error(void);
 uint8_t fnsvc_last_status(void);
 uint8_t fnsvc_last_raw_error(void);
