@@ -41,8 +41,9 @@ automatically:
 - `fujinet-nio-msdos-ioctl.lib` for `FHOST.EXE`, `FLS.EXE`, `FIN.EXE`,
   `FOUT.EXE`, `FMOUNT.EXE`, `FDRIVE.EXE`, and `FAPP.EXE`.
 
-`NIOPROBE.EXE` and `NIOREAD.EXE` remain MS-DOS-only direct serial experiments in
-`msdos/apps/`; they are not part of the shared target build.
+The old `NIOPROBE.EXE` and `NIOREAD.EXE` direct serial diagnostics are retired
+from disk images. Their source may remain in `msdos/apps/` for reference, but
+current MS-DOS workflows should use `FUJINET.SYS` plus the `F*` utilities.
 
 `FLS` asks the file service for up to 420 bytes of directory payload per call by
 default. That keeps normal machines from doing unnecessary extra round trips.
@@ -122,17 +123,6 @@ same DOS request. Set `FUJI_AUTO_DOWNSHIFT=0` to disable that behavior, or
     - `FAPP GET ns key`
     - `FAPP PUT ns key value`
     - `FAPP DEL ns key`
-- `NIOPROBE.EXE [slot] [com]`
-  - Calls DiskService `Info` and prints the mounted image status.
-  - Defaults to NIO disk slot `1` and `COM1`.
-  - Uses direct COM access; do not run it while `FUJINET.SYS` is actively using
-    the same COM port.
-- `NIOREAD.EXE [slot] [lba] [bytes] [com]`
-  - Reads a sector and prints a hex dump.
-  - Defaults to slot `1`, LBA `0`, `512` bytes, and `COM1`.
-  - Uses direct COM access; do not run it while `FUJINET.SYS` is actively using
-    the same COM port.
-
 The `F*` tools do not touch the UART directly. They use DOS block-device IOCTL
 against `FUJINET.SYS`, which keeps one owner of COM1 while allowing applications
 loaded from FujiNet DOS drives to make FileService, DiskService, and network

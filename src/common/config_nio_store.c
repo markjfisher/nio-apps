@@ -17,6 +17,22 @@ static void append_digit(char *buf, uint16_t *off, uint8_t value)
   buf[*off] = 0;
 }
 
+static void append_uint(char *buf, uint16_t *off, uint8_t value)
+{
+  if (value >= 10)
+    append_digit(buf, off, (uint8_t) (value / 10));
+  append_digit(buf, off, (uint8_t) (value % 10));
+}
+
+static void append_text(char *buf, uint16_t *off, const char *text)
+{
+  while (text && *text) {
+    buf[*off] = *text++;
+    *off = (uint16_t) (*off + 1);
+  }
+  buf[*off] = 0;
+}
+
 static int appstore_read_text(const char *key, char *buf, uint16_t cap,
                               uint8_t *exists)
 {
@@ -105,8 +121,46 @@ static void seed_hosts(config_nio_state_t *state)
 {
   state->host_count = 3;
   strcpy(state->hosts[0], "sd0:/");
-  strcpy(state->hosts[1], "tnfs.diller.org");
+  strcpy(state->hosts[1], "fujinet.diller.org");
   strcpy(state->hosts[2], "apps.irata.online");
+  strcpy(state->hosts[3], "fujinet.online");
+}
+
+static void seed_prefs(config_nio_state_t *state)
+{
+  config_nio_prefs_t *prefs;
+
+  prefs = &state->prefs;
+  prefs->date_format = CONFIG_NIO_PREF_DATE_YMD;
+  prefs->size_format = CONFIG_NIO_PREF_SIZE_FULL;
+
+#ifndef __CC65__
+  prefs->color_fg[CONFIG_NIO_COLOR_BODY] = 7;
+  prefs->color_bg[CONFIG_NIO_COLOR_BODY] = 1;
+  prefs->color_fg[CONFIG_NIO_COLOR_FRAME] = 3;
+  prefs->color_bg[CONFIG_NIO_COLOR_FRAME] = 1;
+  prefs->color_fg[CONFIG_NIO_COLOR_TITLE] = 6;
+  prefs->color_bg[CONFIG_NIO_COLOR_TITLE] = 1;
+  prefs->color_fg[CONFIG_NIO_COLOR_SELECT] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_SELECT] = 3;
+  prefs->color_fg[CONFIG_NIO_COLOR_STATUS] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_STATUS] = 3;
+  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE] = 7;
+  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE] = 1;
+  prefs->color_fg[CONFIG_NIO_COLOR_MENUBAR] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_MENUBAR] = 7;
+  prefs->color_fg[CONFIG_NIO_COLOR_MENUHOT] = 4;
+  prefs->color_bg[CONFIG_NIO_COLOR_MENUHOT] = 7;
+  prefs->color_fg[CONFIG_NIO_COLOR_TITLEBAR] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_TITLEBAR] = 3;
+  prefs->color_fg[CONFIG_NIO_COLOR_BUTTON] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_BUTTON] = 7;
+  prefs->color_fg[CONFIG_NIO_COLOR_BUTTON_SELECT] = 7;
+  prefs->color_bg[CONFIG_NIO_COLOR_BUTTON_SELECT] = 1;
+#else
+  prefs->color_fg[0] = 7;
+  prefs->color_bg[0] = 1;
+#endif
 }
 
 static void parse_hosts(config_nio_state_t *state, const char *text)
@@ -160,6 +214,53 @@ static void parse_mappings(config_nio_state_t *state, const char *text)
   }
 }
 
+static void parse_prefs(config_nio_state_t *state, const char *text)
+{
+  const char *p;
+
+  p = text;
+  while (next_line(&p, line_buf, sizeof(line_buf))) {
+    char *a;
+    char *b;
+    int index;
+    int fg;
+    int bg;
+
+    if (strncmp(line_buf, "date=", 5) == 0) {
+      if (strcmp(line_buf + 5, "ydm") == 0)
+        state->prefs.date_format = CONFIG_NIO_PREF_DATE_YDM;
+      else
+        state->prefs.date_format = CONFIG_NIO_PREF_DATE_YMD;
+      continue;
+    }
+    if (strncmp(line_buf, "size=", 5) == 0) {
+      if (strcmp(line_buf + 5, "compact") == 0)
+        state->prefs.size_format = CONFIG_NIO_PREF_SIZE_COMPACT;
+      else
+        state->prefs.size_format = CONFIG_NIO_PREF_SIZE_FULL;
+      continue;
+    }
+    if (strncmp(line_buf, "color", 5) != 0)
+      continue;
+    a = strchr(line_buf, '=');
+    if (!a)
+      continue;
+    *a++ = 0;
+    b = strchr(a, ',');
+    if (!b)
+      continue;
+    *b++ = 0;
+    index = atoi(line_buf + 5);
+    fg = atoi(a);
+    bg = atoi(b);
+    if (index < 0 || index >= CONFIG_NIO_COLOR_COUNT ||
+        fg < 0 || fg > 7 || bg < 0 || bg > 7)
+      continue;
+    state->prefs.color_fg[index] = (uint8_t) fg;
+    state->prefs.color_bg[index] = (uint8_t) bg;
+  }
+}
+
 int config_nio_save_hosts(const config_nio_state_t *state)
 {
   uint8_t i;
@@ -205,6 +306,39 @@ int config_nio_save_mappings(const config_nio_state_t *state)
   return appstore_write_text(CONFIG_NIO_KEY_MAPPINGS, (const char *) store_buf);
 }
 
+int config_nio_save_prefs(const config_nio_state_t *state)
+{
+  uint8_t i;
+  uint16_t off;
+  const char *date_value;
+  const char *size_value;
+
+  off = 0;
+  store_buf[0] = 0;
+  date_value = state->prefs.date_format == CONFIG_NIO_PREF_DATE_YDM ? "ydm" : "ymd";
+  size_value = state->prefs.size_format == CONFIG_NIO_PREF_SIZE_COMPACT ? "compact" : "full";
+  append_text((char *) store_buf, &off, "date=");
+  append_text((char *) store_buf, &off, date_value);
+  append_text((char *) store_buf, &off, "\nsize=");
+  append_text((char *) store_buf, &off, size_value);
+  append_text((char *) store_buf, &off, "\n");
+  for (i = 0; i < CONFIG_NIO_COLOR_COUNT; i++) {
+    if ((uint16_t) (off + 16) >= sizeof(store_buf))
+      return 0;
+    append_text((char *) store_buf, &off, "color");
+    append_uint((char *) store_buf, &off, i);
+    store_buf[off++] = '=';
+    store_buf[off] = 0;
+    append_uint((char *) store_buf, &off, state->prefs.color_fg[i]);
+    store_buf[off++] = ',';
+    store_buf[off] = 0;
+    append_uint((char *) store_buf, &off, state->prefs.color_bg[i]);
+    store_buf[off++] = '\n';
+    store_buf[off] = 0;
+  }
+  return appstore_write_text(CONFIG_NIO_KEY_PREFS, (const char *) store_buf);
+}
+
 int config_nio_load(config_nio_state_t *state)
 {
   uint8_t exists;
@@ -213,6 +347,7 @@ int config_nio_load(config_nio_state_t *state)
     return 0;
 
   memset(state, 0, sizeof(*state));
+  seed_prefs(state);
   if (!appstore_read_text(CONFIG_NIO_KEY_HOSTS, (char *) store_buf,
                           sizeof(store_buf), &exists))
     return 0;
@@ -228,6 +363,12 @@ int config_nio_load(config_nio_state_t *state)
     return 0;
   if (exists)
     parse_mappings(state, (const char *) store_buf);
+
+  if (!appstore_read_text(CONFIG_NIO_KEY_PREFS, (char *) store_buf,
+                          sizeof(store_buf), &exists))
+    return 0;
+  if (exists)
+    parse_prefs(state, (const char *) store_buf);
 
   (void) config_nio_refresh_slots(state);
   config_nio_set_status(state, "Ready");

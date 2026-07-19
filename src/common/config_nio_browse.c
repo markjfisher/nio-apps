@@ -12,7 +12,6 @@ static void list_cb(uint8_t is_dir, const char *name, uint32_t size,
   config_nio_entry_t *entry;
   uint16_t n;
 
-  (void) mtime;
   state = (config_nio_state_t *) ctx;
   state->entry_total++;
   if (state->entry_count >= CONFIG_NIO_MAX_ENTRIES) {
@@ -23,6 +22,7 @@ static void list_cb(uint8_t is_dir, const char *name, uint32_t size,
   entry = &state->entries[state->entry_count++];
   entry->is_dir = is_dir;
   entry->size = size;
+  entry->mtime = mtime;
   n = (uint16_t) strlen(name);
   if (n > CONFIG_NIO_NAME_MAX)
     n = CONFIG_NIO_NAME_MAX;
