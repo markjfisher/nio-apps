@@ -67,6 +67,8 @@ static uint8_t dos_browse_focus;
 #define DOS_PREF_BG_X 36
 #define DOS_PREF_COLOR_W 9
 #define DOS_PREF_ROW_CLEAR_W 47
+#define DOS_PREF_FIRST_Y 2
+#define DOS_PREF_VISIBLE_ROWS 14
 
 static WINDOW *dos_main_win;
 static WINDOW *dos_side_win;
@@ -76,6 +78,7 @@ static int dos_last_screen = -1;
 static uint8_t dos_selected_host;
 static uint8_t dos_selected_entry;
 static uint8_t dos_selected_pref;
+static uint8_t dos_pref_scroll;
 static uint8_t dos_pref_editing;
 static uint8_t dos_pref_edit_field;
 static uint8_t dos_pref_saved_date;
@@ -109,6 +112,10 @@ static void dos_win_title_focus(WINDOW *win, const char *title, int active);
 static void dos_set_list_attr(WINDOW *win, int selected, int active);
 static void dos_draw_status(const char *help, const char *status);
 static const char *dos_browse_status(config_nio_state_t *state);
+static void dos_draw_pref_base(WINDOW *win, int y, uint8_t row, const char *label);
+static void dos_draw_pref_value(WINDOW *win, int y, uint8_t row, const char *value);
+static void dos_draw_pref_color_line(WINDOW *win, int y, config_nio_state_t *state,
+                                     uint8_t role);
 static void dos_anim_reset(void);
 static void dos_anim_tick(config_nio_state_t *state);
 static void dos_pref_cancel_edit(config_nio_state_t *state);
@@ -575,8 +582,8 @@ static void dos_init_colors(const config_nio_prefs_t *prefs)
             dos_pref_color(prefs->color_fg[CONFIG_NIO_COLOR_MENUBAR]),
             dos_pref_color(prefs->color_bg[CONFIG_NIO_COLOR_MENUBAR]));
   init_pair(DOS_COLOR_INACTIVE_SELECT,
-            dos_pref_color(prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE]),
-            dos_pref_color(prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE]));
+            dos_pref_color(prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT]),
+            dos_pref_color(prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT]));
   init_pair(DOS_COLOR_TITLEBAR,
             dos_pref_color(prefs->color_fg[CONFIG_NIO_COLOR_TITLEBAR]),
             dos_pref_color(prefs->color_bg[CONFIG_NIO_COLOR_TITLEBAR]));
@@ -970,6 +977,8 @@ static const char *dos_pref_role_name(uint8_t role)
     return "Status";
   case CONFIG_NIO_COLOR_INACTIVE:
     return "Inactive";
+  case CONFIG_NIO_COLOR_INACTIVE_SELECT:
+    return "Inactive selection";
   case CONFIG_NIO_COLOR_MENUBAR:
     return "Menu";
   case CONFIG_NIO_COLOR_MENUHOT:
@@ -1003,7 +1012,9 @@ static const char *dos_pref_description(void)
   case CONFIG_NIO_COLOR_STATUS:
     return "Status: lower information panel text and background.";
   case CONFIG_NIO_COLOR_INACTIVE:
-    return "Inactive: unfocused window borders and inactive selections.";
+    return "Inactive: unfocused window borders and normal inactive text.";
+  case CONFIG_NIO_COLOR_INACTIVE_SELECT:
+    return "Inactive selection: selected row in an unfocused pane.";
   case CONFIG_NIO_COLOR_MENUBAR:
     return "Menu: top menu bar background and normal menu text.";
   case CONFIG_NIO_COLOR_MENUHOT:
@@ -1026,6 +1037,38 @@ static const char *dos_pref_status(void)
   if (dos_selected_pref < 2)
     return "Editing value; Enter saves, Esc cancels.";
   return dos_pref_edit_field ? "Editing background color." : "Editing foreground color.";
+}
+
+static uint8_t dos_pref_total_rows(void)
+{
+  return (uint8_t) (CONFIG_NIO_COLOR_COUNT + 2);
+}
+
+static void dos_pref_ensure_visible(void)
+{
+  if (dos_selected_pref < dos_pref_scroll)
+    dos_pref_scroll = dos_selected_pref;
+  while (dos_selected_pref >=
+         (uint8_t) (dos_pref_scroll + DOS_PREF_VISIBLE_ROWS))
+    dos_pref_scroll++;
+}
+
+static void dos_draw_pref_row(WINDOW *win, int y, config_nio_state_t *state,
+                              uint8_t row)
+{
+  if (row == 0) {
+    dos_draw_pref_base(win, y, row, "Date format");
+    dos_draw_pref_value(win, y, row,
+                        state->prefs.date_format == CONFIG_NIO_PREF_DATE_YDM ?
+                        "YY-DD-MM" : "YY-MM-DD");
+  } else if (row == 1) {
+    dos_draw_pref_base(win, y, row, "Size format");
+    dos_draw_pref_value(win, y, row,
+                        state->prefs.size_format == CONFIG_NIO_PREF_SIZE_COMPACT ?
+                        "Compact" : "Full");
+  } else {
+    dos_draw_pref_color_line(win, y, state, (uint8_t) (row - 2));
+  }
 }
 
 static void dos_draw_pref_base(WINDOW *win, int y, uint8_t row, const char *label)
@@ -1084,23 +1127,26 @@ static void dos_draw_pref_color_line(WINDOW *win, int y, config_nio_state_t *sta
 static void dos_draw_prefs_screen(config_nio_state_t *state)
 {
   uint8_t i;
+  uint8_t row;
+  uint8_t total;
 
+  dos_pref_ensure_visible();
+  total = dos_pref_total_rows();
   dos_clear_window(dos_main_win, DOS_COLOR_BODY);
   dos_win_title_focus(dos_main_win, " Preferences ", 1);
   wattrset(dos_main_win, COLOR_PAIR(DOS_COLOR_TITLE));
-  mvwaddstr(dos_main_win, 4, DOS_PREF_FG_X, "fg");
-  mvwaddstr(dos_main_win, 4, DOS_PREF_BG_X, "bg");
+  mvwaddstr(dos_main_win, 1, DOS_PREF_FG_X, "fg");
+  mvwaddstr(dos_main_win, 1, DOS_PREF_BG_X, "bg");
+  if (dos_pref_scroll > 0)
+    mvwaddch(dos_main_win, 1, 46, '^');
+  if ((uint8_t) (dos_pref_scroll + DOS_PREF_VISIBLE_ROWS) < total)
+    mvwaddch(dos_main_win, 15, 46, 'v');
 
-  dos_draw_pref_base(dos_main_win, 2, 0, "Date format");
-  dos_draw_pref_value(dos_main_win, 2, 0,
-                      state->prefs.date_format == CONFIG_NIO_PREF_DATE_YDM ?
-                      "YY-DD-MM" : "YY-MM-DD");
-  dos_draw_pref_base(dos_main_win, 3, 1, "Size format");
-  dos_draw_pref_value(dos_main_win, 3, 1,
-                      state->prefs.size_format == CONFIG_NIO_PREF_SIZE_COMPACT ?
-                      "Compact" : "Full");
-  for (i = 0; i < CONFIG_NIO_COLOR_COUNT; i++) {
-    dos_draw_pref_color_line(dos_main_win, (int) i + 5, state, i);
+  for (i = 0; i < DOS_PREF_VISIBLE_ROWS; i++) {
+    row = (uint8_t) (dos_pref_scroll + i);
+    if (row >= total)
+      break;
+    dos_draw_pref_row(dos_main_win, (int) i + DOS_PREF_FIRST_Y, state, row);
   }
   wnoutrefresh(dos_main_win);
 
@@ -1450,6 +1496,8 @@ static void dos_seed_default_prefs(config_nio_prefs_t *prefs)
   prefs->color_bg[CONFIG_NIO_COLOR_STATUS] = 3;
   prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE] = 7;
   prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE] = 1;
+  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 0;
+  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 7;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUBAR] = 0;
   prefs->color_bg[CONFIG_NIO_COLOR_MENUBAR] = 7;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUHOT] = 4;
@@ -1628,6 +1676,8 @@ static void dos_handle_up(config_nio_state_t *state)
     dos_selected_unit--;
   else if (dos_screen == DOS_SCREEN_PREFS && dos_selected_pref > 0)
     dos_selected_pref--;
+  if (dos_screen == DOS_SCREEN_PREFS)
+    dos_pref_ensure_visible();
 }
 
 static void dos_handle_down(config_nio_state_t *state)
@@ -1648,8 +1698,10 @@ static void dos_handle_down(config_nio_state_t *state)
            dos_selected_unit + 1 < FNCTL_MAX_UNITS)
     dos_selected_unit++;
   else if (dos_screen == DOS_SCREEN_PREFS &&
-           dos_selected_pref + 1 < (uint8_t) (CONFIG_NIO_COLOR_COUNT + 2))
+           dos_selected_pref + 1 < dos_pref_total_rows())
     dos_selected_pref++;
+  if (dos_screen == DOS_SCREEN_PREFS)
+    dos_pref_ensure_visible();
 }
 
 static void dos_save_prefs(config_nio_state_t *state)
@@ -1844,6 +1896,7 @@ static int dos_handle_key(config_nio_state_t *state, int key)
     return 1;
   }
   if (key == 'p' || key == 'P') {
+    dos_pref_scroll = 0;
     dos_switch_screen(state, DOS_SCREEN_PREFS);
     config_nio_set_status(state, "Preferences: edit saved display settings");
     return 1;
@@ -2166,6 +2219,7 @@ int config_nio_ui_run(config_nio_state_t *state)
   dos_browser_cache_valid = 0;
   dos_parent_cache_valid = 0;
   dos_selected_pref = 0;
+  dos_pref_scroll = 0;
   dos_pref_editing = 0;
   dos_pref_edit_field = 0;
   dos_anim_reset();
