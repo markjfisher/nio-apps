@@ -1,4 +1,4 @@
-TARGETS := msdos atari bbc bbc-clib
+TARGETS := msdos atari bbc bbc-clib linux
 BOOT_IMAGE_TARGETS := msdos atari bbc
 DEFAULT_TARGET := $(if $(TARGET),$(TARGET),all-targets)
 

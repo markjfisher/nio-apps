@@ -16,3 +16,5 @@ apps:
     name: FAPP
   - src: ${BOOT_DISK_BIN}/clock
     name: CLOCK
+  - src: ${BOOT_DISK_BIN}/config-nio
+    name: CONFNIO

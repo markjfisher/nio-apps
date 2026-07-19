@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __linux__
+#include <strings.h>
+#define stricmp strcasecmp
+#endif
 
 static void usage(void)
 {

@@ -23,7 +23,7 @@ COMMON_PROGRAMS_ALL := $(basename $(notdir $(COMMON_APP_SRCS)))
 COMMON_PROGRAMS_EXCLUDE_msdos := fsioraw
 COMMON_PROGRAMS_EXCLUDE_atari := fboot
 COMMON_PROGRAMS_EXCLUDE_bbc := fboot fsioraw
-COMMON_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw
+COMMON_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw config-nio
 COMMON_PROGRAMS_EXCLUDE := $(COMMON_PROGRAMS_EXCLUDE_$(TARGET))
 PROGRAMS := $(filter-out $(COMMON_PROGRAMS_EXCLUDE),$(COMMON_PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
@@ -43,8 +43,27 @@ ifeq ($(COMPILER_FAMILY),wcc)
 include makefiles/compiler-wcc.mk
 else ifeq ($(COMPILER_FAMILY),cc65)
 include makefiles/compiler-cc65.mk
+else ifeq ($(COMPILER_FAMILY),gcc)
+include makefiles/compiler-gcc.mk
 else
 $(error Unknown compiler family '$(COMPILER_FAMILY)' for TARGET=$(TARGET))
+endif
+
+CONFIG_NIO_SRCS := \
+	$(SRC_DIR)/common/config_nio_state.c \
+	$(SRC_DIR)/common/config_nio_store.c \
+	$(SRC_DIR)/common/config_nio_browse.c \
+	$(SRC_DIR)/common/config_nio_ui.c \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
+CONFIG_NIO_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CONFIG_NIO_SRCS))
+DEPENDS += $(CONFIG_NIO_OBJS:.o=.d)
+
+ifeq ($(TARGET),msdos)
+PDCURSES_DIR ?= ../PDCurses
+PDCURSES_MSDOS_LIB ?= ../../build/pdcurses/msdos-small/pdcurses.lib
+CONFIG_NIO_LIBS := $(PDCURSES_MSDOS_LIB)
+CONFIG_NIO_DEPS := $(PDCURSES_MSDOS_LIB)
+CFLAGS += -i=$(PDCURSES_DIR)
 endif
 
 DISK_TARGETS :=
@@ -74,11 +93,15 @@ $(BIN_DIR)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_F
 	$(call link_program)
 
 define COMMON_PROGRAM_RULE
-$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
+$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),config-nio),$$(CONFIG_NIO_OBJS) $$(CONFIG_NIO_DEPS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
 	$$(call link_program)
 endef
 
 $(foreach prog,$(PROGRAMS),$(eval $(call COMMON_PROGRAM_RULE,$(prog))))
+
+ifeq ($(TARGET),bbc)
+$(BIN_DIR)/config-nio$(PROGRAM_EXT): LDFLAGS := -t $(TARGET) --start-addr 0x0E00 -Wl -D,__HIMEM__=0x9000
+endif
 
 $(OBJ_DIR)/msdos/%.o: msdos/%.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)

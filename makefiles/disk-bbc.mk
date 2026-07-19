@@ -11,6 +11,7 @@ DFS_NAME_fapp := FAPP
 DFS_NAME_fhttpbin := FHTTP
 DFS_NAME_astest := ASTEST
 DFS_NAME_clock := CLOCK
+DFS_NAME_config-nio := CONFNIO
 
 define BBC_DFS_NAME
 $(or $(DFS_NAME_$(1)),$(1))

@@ -16,5 +16,5 @@ define compile_c
 endef
 
 define link_program
-	$(LD) $(LDFLAGS) -fe=$@ $^
+	$(LD) $(LDFLAGS) $(EXTRA_PROGRAM_LDFLAGS) -fe=$@ $^
 endef

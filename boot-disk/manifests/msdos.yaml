@@ -21,3 +21,5 @@ apps:
     name: FAPP.EXE
   - src: ${BOOT_DISK_BIN}/clock.exe
     name: CLOCK.EXE
+  - src: ${BOOT_DISK_BIN}/config-nio.exe
+    name: CONFNIO.EXE

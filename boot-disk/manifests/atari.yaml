@@ -16,3 +16,5 @@ apps:
     name: fapp.xex
   - src: ${BOOT_DISK_BIN}/clock.xex
     name: clock.xex
+  - src: ${BOOT_DISK_BIN}/config-nio.xex
+    name: config-nio.xex
