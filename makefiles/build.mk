@@ -3,10 +3,10 @@ SHELL := /usr/bin/env bash
 
 TARGET ?= msdos
 FUJINET_NIO_LIB ?= ../fujinet-nio-lib
-FNSVC_LIST_MAX_PAYLOAD ?= 420
 
 include makefiles/targets.mk
 
+FNSVC_LIST_MAX_PAYLOAD ?= 420
 ifeq ($(TARGET),bbc)
 FNSVC_LIST_MAX_PAYLOAD := 180
 endif
@@ -34,6 +34,9 @@ MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
 
 STANDALONE_PROGRAMS := astest clock fhttpbin irqmon
+ifeq ($(TARGET),bbc)
+STANDALONE_PROGRAMS += config-nio
+endif
 NO_NIO_LIB_PROGRAMS := irqmon
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
@@ -61,6 +64,8 @@ CONFIG_NIO_SRCS_COMMON := \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
 
 CONFIG_NIO_SRCS_bbc := \
+	$(SRC_DIR)/common/fnsvc_config_nio_bbc.c \
+	$(SRC_DIR)/platform/$(PLATFORM)/fnctl.c \
 	$(SRC_DIR)/common/config_nio_state.c \
 	$(SRC_DIR)/common/config_nio_store.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
@@ -111,9 +116,12 @@ endef
 $(foreach prog,$(PROGRAMS),$(eval $(call COMMON_PROGRAM_RULE,$(prog))))
 
 ifeq ($(TARGET),bbc)
-CFLAGS += -DCONFIG_NIO_BBC_LITE -DFNSVC_IO_BUF_SIZE=256 -DFNSVC_LIST_NAME_MAX=64
-BBC_CONFIG_NIO_START_ADDRESS ?= 0x1900
-BBC_CONFIG_NIO_HIMEM ?= 0x9000
+BBC_CONFIG_NIO_START_ADDRESS ?= 0x0E00
+BBC_CONFIG_NIO_HIMEM ?= 0x7C00
+$(BIN_DIR)/config-nio$(PROGRAM_EXT): CFLAGS += -DCONFIG_NIO_BBC_LITE
+ifeq ($(BBC_CONFIG_NIO_SHADOW_MODE),1)
+$(BIN_DIR)/config-nio$(PROGRAM_EXT): CFLAGS += -DCONFIG_NIO_BBC_SHADOW_MODE
+endif
 $(BIN_DIR)/config-nio$(PROGRAM_EXT): LDFLAGS := -t $(TARGET) --start-addr $(BBC_CONFIG_NIO_START_ADDRESS) -Wl -D,__HIMEM__=$(BBC_CONFIG_NIO_HIMEM)
 endif
 

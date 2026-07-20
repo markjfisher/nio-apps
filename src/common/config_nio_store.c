@@ -6,7 +6,9 @@
 
 static uint8_t store_buf[CONFIG_NIO_TEXT_MAX + 1];
 static char line_buf[CONFIG_NIO_URI_MAX + 1];
+#ifndef CONFIG_NIO_BBC_LITE
 static char host_tmp[CONFIG_NIO_URI_MAX + 1];
+#endif
 
 #define CONFIG_NIO_APPSTORE_READ_MAX 502
 
@@ -181,9 +183,13 @@ static void parse_hosts(config_nio_state_t *state, const char *text)
          state->host_count < CONFIG_NIO_MAX_HOSTS) {
     if (!line_buf[0])
       continue;
+#ifndef CONFIG_NIO_BBC_LITE
     strncpy(host_tmp, line_buf, CONFIG_NIO_URI_MAX);
     host_tmp[CONFIG_NIO_URI_MAX] = 0;
     strcpy(state->hosts[state->host_count], host_tmp);
+#else
+    strcpy(state->hosts[state->host_count], line_buf);
+#endif
     state->host_count++;
   }
 }
