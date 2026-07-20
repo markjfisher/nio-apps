@@ -63,12 +63,17 @@ static uint8_t dos_browse_focus;
 #define DOS_PREF_LABEL_W 18
 #define DOS_PREF_VALUE_X 24
 #define DOS_PREF_VALUE_W 11
-#define DOS_PREF_FG_X 24
-#define DOS_PREF_BG_X 36
+#define DOS_PREF_FG_X 25
+#define DOS_PREF_BG_X 37
 #define DOS_PREF_COLOR_W 9
 #define DOS_PREF_ROW_CLEAR_W 47
 #define DOS_PREF_FIRST_Y 2
 #define DOS_PREF_VISIBLE_ROWS 14
+#define DOS_PREF_GROUP_NONE 0xff
+#define DOS_PREF_FORMAT_TOP 0
+#define DOS_PREF_FORMAT_BOTTOM 3
+#define DOS_PREF_COLOR_TOP 4
+#define DOS_PREF_COLOR_HEADER 5
 
 static WINDOW *dos_main_win;
 static WINDOW *dos_side_win;
@@ -112,8 +117,8 @@ static void dos_win_title_focus(WINDOW *win, const char *title, int active);
 static void dos_set_list_attr(WINDOW *win, int selected, int active);
 static void dos_draw_status(const char *help, const char *status);
 static const char *dos_browse_status(config_nio_state_t *state);
-static void dos_draw_pref_base(WINDOW *win, int y, uint8_t row, const char *label);
-static void dos_draw_pref_value(WINDOW *win, int y, uint8_t row, const char *value);
+static void dos_draw_pref_base(WINDOW *win, int y, uint8_t pref, const char *label);
+static void dos_draw_pref_value(WINDOW *win, int y, uint8_t pref, const char *value);
 static void dos_draw_pref_color_line(WINDOW *win, int y, config_nio_state_t *state,
                                      uint8_t role);
 static void dos_anim_reset(void);
@@ -1039,56 +1044,165 @@ static const char *dos_pref_status(void)
   return dos_pref_edit_field ? "Editing background color." : "Editing foreground color.";
 }
 
-static uint8_t dos_pref_total_rows(void)
+static uint8_t dos_pref_total_prefs(void)
 {
   return (uint8_t) (CONFIG_NIO_COLOR_COUNT + 2);
 }
 
+static uint8_t dos_pref_total_rows(void)
+{
+  return (uint8_t) (CONFIG_NIO_COLOR_COUNT + 7);
+}
+
+static uint8_t dos_pref_display_row(uint8_t pref)
+{
+  if (pref < 2)
+    return (uint8_t) (pref + 1);
+  return (uint8_t) (pref + 4);
+}
+
+static uint8_t dos_pref_from_display_row(uint8_t row)
+{
+  if (row == DOS_PREF_FORMAT_TOP || row == DOS_PREF_FORMAT_BOTTOM ||
+      row == DOS_PREF_COLOR_TOP || row == DOS_PREF_COLOR_HEADER ||
+      row + 1 == dos_pref_total_rows())
+    return DOS_PREF_GROUP_NONE;
+  if (row > DOS_PREF_FORMAT_TOP && row < DOS_PREF_FORMAT_BOTTOM)
+    return (uint8_t) (row - 1);
+  if (row > DOS_PREF_COLOR_HEADER)
+    return (uint8_t) (row - 4);
+  return DOS_PREF_GROUP_NONE;
+}
+
+static uint8_t dos_pref_section_top(uint8_t pref)
+{
+  if (pref < 2)
+    return DOS_PREF_FORMAT_TOP;
+  return DOS_PREF_COLOR_TOP;
+}
+
 static void dos_pref_ensure_visible(void)
 {
-  if (dos_selected_pref < dos_pref_scroll)
-    dos_pref_scroll = dos_selected_pref;
-  while (dos_selected_pref >=
+  uint8_t row;
+  uint8_t bottom;
+  uint8_t section_top;
+  uint8_t top;
+
+  row = dos_pref_display_row(dos_selected_pref);
+  bottom = row;
+  if (dos_selected_pref == 1 || dos_selected_pref + 1 == dos_pref_total_prefs())
+    bottom = (uint8_t) (row + 1);
+  section_top = dos_pref_section_top(dos_selected_pref);
+  top = row;
+  if (row > 1)
+    top = (uint8_t) (row - 2);
+  if (top < section_top)
+    top = section_top;
+  if (row < dos_pref_scroll)
+    dos_pref_scroll = top;
+  while (bottom >=
          (uint8_t) (dos_pref_scroll + DOS_PREF_VISIBLE_ROWS))
     dos_pref_scroll++;
+  if (row - dos_pref_scroll < 2 && dos_pref_scroll > section_top)
+    dos_pref_scroll = top;
+}
+
+static void dos_pref_hline(WINDOW *win, int y, int left, int width,
+                           const char *label)
+{
+  int n;
+
+  wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+  wmove(win, y, left);
+  waddch(win, label && label[0] ? ACS_ULCORNER : ACS_LLCORNER);
+  if (label && label[0]) {
+    waddch(win, ACS_HLINE);
+    waddch(win, ' ');
+    wattrset(win, COLOR_PAIR(DOS_COLOR_TITLE));
+    dos_curses_print_clip(win, label, 12);
+    wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+    waddch(win, ' ');
+    n = 16;
+  } else {
+    n = 1;
+  }
+  while (n < width - 1) {
+    waddch(win, ACS_HLINE);
+    n++;
+  }
+  waddch(win, label && label[0] ? ACS_URCORNER : ACS_LRCORNER);
 }
 
 static void dos_draw_pref_row(WINDOW *win, int y, config_nio_state_t *state,
                               uint8_t row)
 {
-  if (row == 0) {
-    dos_draw_pref_base(win, y, row, "Date format");
-    dos_draw_pref_value(win, y, row,
+  uint8_t pref;
+
+  if (row == DOS_PREF_FORMAT_TOP) {
+    dos_pref_hline(win, y, 1, 48, "Formatting");
+    return;
+  }
+  if (row == DOS_PREF_FORMAT_BOTTOM) {
+    dos_pref_hline(win, y, 1, 48, "");
+    return;
+  }
+  if (row == DOS_PREF_COLOR_TOP) {
+    dos_pref_hline(win, y, 1, 48, "Colours");
+    return;
+  }
+  if (row == DOS_PREF_COLOR_HEADER) {
+    wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+    mvwaddch(win, y, 1, ACS_VLINE);
+    wattrset(win, COLOR_PAIR(DOS_COLOR_TITLE));
+    mvwaddstr(win, y, DOS_PREF_FG_X, "fg");
+    mvwaddstr(win, y, DOS_PREF_BG_X, "bg");
+    wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+    mvwaddch(win, y, 48, ACS_VLINE);
+    return;
+  }
+  if (row + 1 == dos_pref_total_rows()) {
+    dos_pref_hline(win, y, 1, 48, "");
+    return;
+  }
+  pref = dos_pref_from_display_row(row);
+  if (pref == 0) {
+    dos_draw_pref_base(win, y, pref, "Date format");
+    dos_draw_pref_value(win, y, pref,
                         state->prefs.date_format == CONFIG_NIO_PREF_DATE_YDM ?
                         "YY-DD-MM" : "YY-MM-DD");
-  } else if (row == 1) {
-    dos_draw_pref_base(win, y, row, "Size format");
-    dos_draw_pref_value(win, y, row,
+  } else if (pref == 1) {
+    dos_draw_pref_base(win, y, pref, "Size format");
+    dos_draw_pref_value(win, y, pref,
                         state->prefs.size_format == CONFIG_NIO_PREF_SIZE_COMPACT ?
                         "Compact" : "Full");
-  } else {
-    dos_draw_pref_color_line(win, y, state, (uint8_t) (row - 2));
+  } else if (pref < dos_pref_total_prefs()) {
+    dos_draw_pref_color_line(win, y, state, (uint8_t) (pref - 2));
   }
 }
 
-static void dos_draw_pref_base(WINDOW *win, int y, uint8_t row, const char *label)
+static void dos_draw_pref_base(WINDOW *win, int y, uint8_t pref, const char *label)
 {
   int selected;
 
-  selected = row == dos_selected_pref && !dos_pref_editing;
+  selected = pref == dos_selected_pref && !dos_pref_editing;
+  wattrset(win, COLOR_PAIR(DOS_COLOR_BODY));
+  wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+  mvwaddch(win, y, 1, ACS_VLINE);
   wattrset(win, COLOR_PAIR(DOS_COLOR_BODY));
   wmove(win, y, 2);
-  dos_curses_print_clip(win, "", DOS_PREF_ROW_CLEAR_W);
+  dos_curses_print_clip(win, "", 46);
+  wattrset(win, COLOR_PAIR(DOS_COLOR_FRAME));
+  mvwaddch(win, y, 48, ACS_VLINE);
   dos_set_list_attr(win, selected, 1);
   wmove(win, y, DOS_PREF_LABEL_X);
   dos_curses_print_clip(win, label, DOS_PREF_LABEL_W);
 }
 
-static void dos_draw_pref_value(WINDOW *win, int y, uint8_t row, const char *value)
+static void dos_draw_pref_value(WINDOW *win, int y, uint8_t pref, const char *value)
 {
   int selected;
 
-  selected = row == dos_selected_pref && dos_pref_editing;
+  selected = pref == dos_selected_pref && dos_pref_editing;
   if (selected)
     dos_set_list_attr(win, 1, 1);
   else
@@ -1134,9 +1248,6 @@ static void dos_draw_prefs_screen(config_nio_state_t *state)
   total = dos_pref_total_rows();
   dos_clear_window(dos_main_win, DOS_COLOR_BODY);
   dos_win_title_focus(dos_main_win, " Preferences ", 1);
-  wattrset(dos_main_win, COLOR_PAIR(DOS_COLOR_TITLE));
-  mvwaddstr(dos_main_win, 1, DOS_PREF_FG_X, "fg");
-  mvwaddstr(dos_main_win, 1, DOS_PREF_BG_X, "bg");
   if (dos_pref_scroll > 0)
     mvwaddch(dos_main_win, 1, 46, '^');
   if ((uint8_t) (dos_pref_scroll + DOS_PREF_VISIBLE_ROWS) < total)
@@ -1698,7 +1809,7 @@ static void dos_handle_down(config_nio_state_t *state)
            dos_selected_unit + 1 < FNCTL_MAX_UNITS)
     dos_selected_unit++;
   else if (dos_screen == DOS_SCREEN_PREFS &&
-           dos_selected_pref + 1 < dos_pref_total_rows())
+           dos_selected_pref + 1 < dos_pref_total_prefs())
     dos_selected_pref++;
   if (dos_screen == DOS_SCREEN_PREFS)
     dos_pref_ensure_visible();
