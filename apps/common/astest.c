@@ -16,7 +16,10 @@
 #define ASTEST_READ_MAX 96
 #define ASTEST_KEY_DATA_MAX 160
 #define ASTEST_KEY_NAME_MAX 64
+#define ASTEST_APPSTORE_BUF_MAX 220
 
+static uint8_t appstore_buf[ASTEST_APPSTORE_BUF_MAX];
+static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 static uint8_t read_buf[ASTEST_READ_MAX + 1];
 static uint8_t key_data[ASTEST_KEY_DATA_MAX];
 static char key_name[ASTEST_KEY_NAME_MAX];
@@ -46,7 +49,7 @@ static int write_value(const char *key, uint32_t offset, const char *value)
   uint16_t len = (uint16_t) strlen(value);
   uint8_t result;
 
-  result = fn_appstore_write(ASTEST_NS, key, offset, (const uint8_t *) value, len, &wr);
+  result = fn_appstore_write(&appstore_io, ASTEST_NS, key, offset, (const uint8_t *) value, len, &wr);
   if (result != FN_OK) {
     fail_code("write", result);
     return 0;
@@ -63,7 +66,7 @@ static int expect_stat(const char *key, uint8_t exists, uint32_t size)
   fn_appstore_stat_t st;
   uint8_t result;
 
-  result = fn_appstore_stat(ASTEST_NS, key, &st);
+  result = fn_appstore_stat(&appstore_io, ASTEST_NS, key, &st);
   if (result != FN_OK) {
     fail_code("stat", result);
     return 0;
@@ -86,7 +89,7 @@ static int expect_read(const char *key, const char *expected)
   uint8_t result;
 
   memset(read_buf, 0, sizeof(read_buf));
-  result = fn_appstore_read(ASTEST_NS, key, 0, read_buf, ASTEST_READ_MAX, &rr);
+  result = fn_appstore_read(&appstore_io, ASTEST_NS, key, 0, read_buf, ASTEST_READ_MAX, &rr);
   if (result != FN_OK) {
     fail_code("read", result);
     return 0;
@@ -114,7 +117,7 @@ static int list_has_key(const char *wanted)
   uint16_t i;
   uint8_t result;
 
-  result = fn_appstore_list(ASTEST_NS, 0, key_data, sizeof(key_data), &lr);
+  result = fn_appstore_list(&appstore_io, ASTEST_NS, 0, key_data, sizeof(key_data), &lr);
   if (result != FN_OK) {
     fail_code("list", result);
     return 0;
@@ -139,7 +142,7 @@ static int delete_key(const char *key, uint8_t expect_deleted)
   fn_appstore_delete_t dr;
   uint8_t result;
 
-  result = fn_appstore_delete(ASTEST_NS, key, &dr);
+  result = fn_appstore_delete(&appstore_io, ASTEST_NS, key, &dr);
   if (result != FN_OK) {
     fail_code("delete", result);
     return 0;

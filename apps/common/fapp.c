@@ -7,9 +7,16 @@
 #define CHUNK_SIZE 256
 #define KEY_DATA_SIZE 420
 #define KEY_NAME_SIZE 128
+#ifdef __CC65__
+#define APPSTORE_IO_SIZE 512
+#else
+#define APPSTORE_IO_SIZE 1024
+#endif
 
 static uint8_t data_buf[CHUNK_SIZE];
 static uint8_t key_data[KEY_DATA_SIZE];
+static uint8_t appstore_buf[APPSTORE_IO_SIZE];
+static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 static char key_name[KEY_NAME_SIZE];
 #ifdef __ATARI__
 static char input_cmd[8];
@@ -130,7 +137,7 @@ static int do_stat(const char *ns, const char *key)
   fn_appstore_stat_t st;
   uint8_t result;
 
-  result = fn_appstore_stat(ns, key, &st);
+  result = fn_appstore_stat(&appstore_io, ns, key, &st);
   if (result != FN_OK)
     return fail("STAT", result);
 
@@ -150,7 +157,7 @@ static int do_get(const char *ns, const char *key)
     uint8_t result;
     uint16_t i;
 
-    result = fn_appstore_read(ns, key, offset, data_buf, sizeof(data_buf), &rr);
+    result = fn_appstore_read(&appstore_io, ns, key, offset, data_buf, sizeof(data_buf), &rr);
     if (result != FN_OK)
       return fail("GET", result);
     if ((rr.flags & FN_APPSTORE_READ_EXISTS) == 0) {
@@ -177,7 +184,7 @@ static int do_put(const char *ns, const char *key, const char *value)
 
   if (left == 0) {
     fn_appstore_write_t wr;
-    uint8_t result = fn_appstore_write(ns, key, 0, (const uint8_t *) "", 0, &wr);
+    uint8_t result = fn_appstore_write(&appstore_io, ns, key, 0, (const uint8_t *) "", 0, &wr);
     if (result != FN_OK)
       return fail("PUT", result);
     puts("Wrote 0 bytes");
@@ -187,7 +194,7 @@ static int do_put(const char *ns, const char *key, const char *value)
   while (left != 0) {
     fn_appstore_write_t wr;
     uint16_t chunk = left > CHUNK_SIZE ? CHUNK_SIZE : left;
-    uint8_t result = fn_appstore_write(ns, key, offset, p, chunk, &wr);
+    uint8_t result = fn_appstore_write(&appstore_io, ns, key, offset, p, chunk, &wr);
     if (result != FN_OK)
       return fail("PUT", result);
     if (wr.bytes_written == 0) {
@@ -208,7 +215,7 @@ static int do_delete(const char *ns, const char *key)
   fn_appstore_delete_t dr;
   uint8_t result;
 
-  result = fn_appstore_delete(ns, key, &dr);
+  result = fn_appstore_delete(&appstore_io, ns, key, &dr);
   if (result != FN_OK)
     return fail("DEL", result);
   printf("Deleted: %s\n", dr.deleted ? "yes" : "no");
@@ -226,7 +233,7 @@ static int do_list(const char *ns)
     uint16_t i;
     uint8_t result;
 
-    result = fn_appstore_list(ns, start, key_data, sizeof(key_data), &lr);
+    result = fn_appstore_list(&appstore_io, ns, start, key_data, sizeof(key_data), &lr);
     if (result != FN_OK)
       return fail("LIST", result);
 

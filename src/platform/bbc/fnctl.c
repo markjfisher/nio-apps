@@ -12,7 +12,13 @@
 #define FNCTL_KEY_PATH "current-display-path"
 
 static uint16_t last_dos_error;
-static uint8_t read_buf[FNCTL_MAX_URI + 1];
+#ifdef CONFIG_NIO_BBC_LITE
+#define FNCTL_APPSTORE_BUF_SIZE 64
+#else
+#define FNCTL_APPSTORE_BUF_SIZE 320
+#endif
+static uint8_t appstore_buf[FNCTL_APPSTORE_BUF_SIZE];
+static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 static char key_buf[16];
 
 static void zero_bytes(void *ptr, uint16_t len)
@@ -44,7 +50,7 @@ static int read_key(const char *key, char *dst, uint16_t cap)
     return 0;
 
   dst[0] = 0;
-  result = fn_appstore_read(FNCTL_STATE_NS, key, 0, read_buf,
+  result = fn_appstore_read(&appstore_io, FNCTL_STATE_NS, key, 0, appstore_buf,
                             (uint16_t) (cap - 1), &rr);
   if (result != FN_OK || (rr.flags & FN_APPSTORE_READ_EXISTS) == 0)
     return 0;
@@ -52,7 +58,7 @@ static int read_key(const char *key, char *dst, uint16_t cap)
   n = rr.bytes_read;
   if (n >= cap)
     n = (uint16_t) (cap - 1);
-  memcpy(dst, read_buf, n);
+  memcpy(dst, appstore_buf, n);
   dst[n] = 0;
   return 1;
 }
@@ -61,7 +67,7 @@ static int write_key(const char *key, const char *value)
 {
   fn_appstore_write_t wr;
   uint16_t len = (uint16_t) strlen(value);
-  uint8_t result = fn_appstore_write(FNCTL_STATE_NS, key, 0,
+  uint8_t result = fn_appstore_write(&appstore_io, FNCTL_STATE_NS, key, 0,
                                      (const uint8_t *) value, len, &wr);
   return result == FN_OK && wr.bytes_written == len;
 }
@@ -111,13 +117,13 @@ int fnctl_get_unit_slot(uint8_t unit, uint8_t *slot)
   if (!slot || unit >= FNCTL_MAX_UNITS)
     return 0;
 
-  result = fn_appstore_read(FNCTL_APP_NS, unit_key(unit), 0, read_buf, 1, &rr);
+  result = fn_appstore_read(&appstore_io, FNCTL_APP_NS, unit_key(unit), 0, appstore_buf, 1, &rr);
   if (result != FN_OK || (rr.flags & FN_APPSTORE_READ_EXISTS) == 0 || rr.bytes_read == 0) {
     *slot = unit;
     return 1;
   }
 
-  *slot = read_buf[0];
+  *slot = appstore_buf[0];
   return 1;
 }
 
@@ -125,12 +131,13 @@ int fnctl_set_unit_slot(uint8_t unit, uint8_t slot)
 {
   fn_appstore_write_t wr;
   uint8_t result;
+  uint8_t slot_buf[1];
 
   if (unit >= FNCTL_MAX_UNITS || slot >= FNCTL_MAX_UNITS)
     return 0;
 
-  read_buf[0] = slot;
-  result = fn_appstore_write(FNCTL_APP_NS, unit_key(unit), 0, read_buf, 1, &wr);
+  slot_buf[0] = slot;
+  result = fn_appstore_write(&appstore_io, FNCTL_APP_NS, unit_key(unit), 0, slot_buf, 1, &wr);
   return result == FN_OK && wr.bytes_written == 1;
 }
 

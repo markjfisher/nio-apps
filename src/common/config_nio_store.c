@@ -4,13 +4,23 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef CONFIG_NIO_BBC_LITE
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 320
+#elif defined(__CC65__)
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 512
+#else
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 1024
+#endif
+
 static uint8_t store_buf[CONFIG_NIO_TEXT_MAX + 1];
+static uint8_t appstore_buf[CONFIG_NIO_APPSTORE_BUF_SIZE];
+static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 static char line_buf[CONFIG_NIO_URI_MAX + 1];
 #ifndef CONFIG_NIO_BBC_LITE
 static char host_tmp[CONFIG_NIO_URI_MAX + 1];
 #endif
 
-#define CONFIG_NIO_APPSTORE_READ_MAX 502
+#define CONFIG_NIO_APPSTORE_READ_MAX (CONFIG_NIO_APPSTORE_BUF_SIZE - 10)
 
 static void append_digit(char *buf, uint16_t *off, uint8_t value)
 {
@@ -56,7 +66,7 @@ static int appstore_read_text(const char *key, char *buf, uint16_t cap,
   if (max_read > CONFIG_NIO_APPSTORE_READ_MAX)
     max_read = CONFIG_NIO_APPSTORE_READ_MAX;
 
-  result = fn_appstore_read(CONFIG_NIO_NS, key, 0, (uint8_t *) buf,
+  result = fn_appstore_read(&appstore_io, CONFIG_NIO_NS, key, 0, appstore_buf,
                             max_read, &rr);
   if (result != FN_OK)
     return 0;
@@ -66,6 +76,7 @@ static int appstore_read_text(const char *key, char *buf, uint16_t cap,
   n = rr.bytes_read;
   if (n >= cap)
     n = (uint16_t) (cap - 1);
+  memcpy(buf, appstore_buf, n);
   buf[n] = 0;
   if (exists)
     *exists = 1;
@@ -79,7 +90,7 @@ static int appstore_write_text(const char *key, const char *buf)
   uint8_t result;
 
   len = (uint16_t) strlen(buf);
-  result = fn_appstore_write(CONFIG_NIO_NS, key, 0, (const uint8_t *) buf,
+  result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, 0, (const uint8_t *) buf,
                              len, &wr);
   return result == FN_OK && wr.bytes_written == len;
 }
