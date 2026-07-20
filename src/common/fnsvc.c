@@ -28,13 +28,21 @@ enum {
   NIO_FILE_LIST_DIRECTORY = 0x02
 };
 
-static uint8_t req_buf[FNCTL_MAX_DATA];
-static uint8_t resp_buf[FNCTL_MAX_DATA];
+#ifndef FNSVC_IO_BUF_SIZE
+#define FNSVC_IO_BUF_SIZE FNCTL_MAX_DATA
+#endif
+
+#ifndef FNSVC_LIST_NAME_MAX
+#define FNSVC_LIST_NAME_MAX 220
+#endif
+
+static uint8_t req_buf[FNSVC_IO_BUF_SIZE];
+static uint8_t resp_buf[FNSVC_IO_BUF_SIZE];
 static uint8_t last_error;
 static uint8_t last_status;
 static uint8_t last_raw_error;
 static uint16_t last_response_len;
-static char list_name[221];
+static char list_name[FNSVC_LIST_NAME_MAX + 1];
 
 enum {
   NIO_FILE_LIST_FLAG_COMPACT = 0x01,
@@ -188,6 +196,100 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
   return 1;
 }
 
+#ifdef CONFIG_NIO_BBC_LITE
+int fnsvc_list_directory_page(const char *uri, uint16_t start,
+                              uint16_t max_payload, uint8_t max_entries,
+                              fnsvc_list_cb cb,
+                              void *ctx, uint16_t *next_start,
+                              uint8_t *more)
+{
+  uint16_t uri_len;
+  uint8_t status;
+  uint16_t resp_len;
+  uint16_t off;
+  uint16_t count;
+  uint16_t entries_len;
+  uint16_t pos;
+  uint16_t idx;
+  uint8_t delivered;
+  uint8_t flags;
+
+  if (!uri || !cb || max_entries == 0)
+    return fail(FNSVC_ERR_INVALID_ARG);
+
+  uri_len = (uint16_t) strlen(uri);
+  last_error = FNSVC_ERR_NONE;
+  last_status = 0;
+  last_raw_error = 0;
+  last_response_len = 0;
+
+  if (max_payload > (uint16_t) (sizeof(resp_buf) - 10))
+    max_payload = (uint16_t) (sizeof(resp_buf) - 10);
+  if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
+    return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
+
+  off = 0;
+  req_buf[off++] = NIO_FILE_VERSION;
+  put_u16le(&req_buf[off], uri_len);
+  off += 2;
+  memcpy(&req_buf[off], uri, uri_len);
+  off += uri_len;
+  put_u16le(&req_buf[off], start);
+  off += 2;
+  put_u16le(&req_buf[off], max_payload);
+  off += 2;
+  req_buf[off++] = NIO_FILE_LIST_FLAG_SORT_BY_NAME | NIO_FILE_LIST_FLAG_COMPACT;
+
+  if (!service_call(NIO_DEVICEID_FILE, NIO_FILE_LIST_DIRECTORY,
+                    req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len))
+    return fail(FNSVC_ERR_TRANSPORT);
+
+  last_status = status;
+  last_response_len = resp_len;
+
+  if (status != FNSVC_STATUS_OK)
+    return fail(FNSVC_ERR_STATUS);
+  if (resp_len < 10)
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
+  if (resp_buf[0] != NIO_FILE_VERSION)
+    return fail(FNSVC_ERR_BAD_VERSION);
+
+  flags = resp_buf[1];
+  count = get_u16le(&resp_buf[6]);
+  entries_len = get_u16le(&resp_buf[8]);
+  if ((uint16_t) (10 + entries_len) > resp_len)
+    return fail(FNSVC_ERR_ENTRIES_BOUNDS);
+
+  pos = 10;
+  delivered = 0;
+  for (idx = 0; idx < count; idx++) {
+    uint8_t eflags;
+    uint8_t name_len;
+
+    if ((uint16_t) (pos + 2) > resp_len)
+      return fail(FNSVC_ERR_ENTRY_BOUNDS);
+    eflags = resp_buf[pos++];
+    name_len = resp_buf[pos++];
+    if ((uint16_t) (pos + name_len) > resp_len || name_len >= sizeof(list_name))
+      return fail(FNSVC_ERR_ENTRY_BOUNDS);
+    memcpy(list_name, &resp_buf[pos], name_len);
+    list_name[name_len] = 0;
+    pos += name_len;
+
+    if (delivered < max_entries) {
+      cb((uint8_t) (eflags & 0x01), list_name, 0, 0, ctx);
+      delivered++;
+    }
+  }
+
+  if (next_start)
+    *next_start = (uint16_t) (start + delivered);
+  if (more)
+    *more = (uint8_t) (delivered < count || (flags & NIO_FILE_LIST_RESP_MORE) != 0);
+  return 1;
+}
+#endif
+
 uint8_t fnsvc_last_error(void)
 {
   return last_error;
@@ -244,8 +346,18 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
   len = resp_buf[2];
   if (off + len + 1 > resp_len)
     return fail(FNSVC_ERR_SHORT_RESPONSE);
+#if FNSVC_MOUNT_URI_MAX < FNSVC_MAX_URI
+  if (len >= sizeof(mount->uri)) {
+    memcpy(mount->uri, &resp_buf[off], sizeof(mount->uri) - 1);
+    mount->uri[sizeof(mount->uri) - 1] = 0;
+  } else {
+    memcpy(mount->uri, &resp_buf[off], len);
+    mount->uri[len] = 0;
+  }
+#else
   memcpy(mount->uri, &resp_buf[off], len);
   mount->uri[len] = 0;
+#endif
   off += len;
   len = resp_buf[off++];
   if (off + len > resp_len || len >= sizeof(mount->mode))

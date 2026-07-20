@@ -17,6 +17,7 @@ static void append_digit(char *buf, uint16_t *off, uint8_t value)
   buf[*off] = 0;
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void append_uint(char *buf, uint16_t *off, uint8_t value)
 {
   if (value >= 10)
@@ -32,6 +33,7 @@ static void append_text(char *buf, uint16_t *off, const char *text)
   }
   buf[*off] = 0;
 }
+#endif
 
 static int appstore_read_text(const char *key, char *buf, uint16_t cap,
                               uint8_t *exists)
@@ -128,13 +130,14 @@ static void seed_hosts(config_nio_state_t *state)
 
 static void seed_prefs(config_nio_state_t *state)
 {
+#ifndef CONFIG_NIO_BBC_LITE
   config_nio_prefs_t *prefs;
 
   prefs = &state->prefs;
   prefs->date_format = CONFIG_NIO_PREF_DATE_YMD;
   prefs->size_format = CONFIG_NIO_PREF_SIZE_FULL;
 
-#ifndef __CC65__
+#if !defined(__CC65__)
   prefs->color_fg[CONFIG_NIO_COLOR_BODY] = 7;
   prefs->color_bg[CONFIG_NIO_COLOR_BODY] = 1;
   prefs->color_fg[CONFIG_NIO_COLOR_FRAME] = 3;
@@ -162,6 +165,9 @@ static void seed_prefs(config_nio_state_t *state)
 #else
   prefs->color_fg[0] = 7;
   prefs->color_bg[0] = 1;
+#endif
+#else
+  (void) state;
 #endif
 }
 
@@ -216,6 +222,7 @@ static void parse_mappings(config_nio_state_t *state, const char *text)
   }
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void parse_prefs(config_nio_state_t *state, const char *text)
 {
   const char *p;
@@ -262,6 +269,7 @@ static void parse_prefs(config_nio_state_t *state, const char *text)
     state->prefs.color_bg[index] = (uint8_t) bg;
   }
 }
+#endif
 
 int config_nio_save_hosts(const config_nio_state_t *state)
 {
@@ -310,6 +318,7 @@ int config_nio_save_mappings(const config_nio_state_t *state)
 
 int config_nio_save_prefs(const config_nio_state_t *state)
 {
+#ifndef CONFIG_NIO_BBC_LITE
   uint8_t i;
   uint16_t off;
   const char *date_value;
@@ -339,6 +348,10 @@ int config_nio_save_prefs(const config_nio_state_t *state)
     store_buf[off] = 0;
   }
   return appstore_write_text(CONFIG_NIO_KEY_PREFS, (const char *) store_buf);
+#else
+  (void) state;
+  return 1;
+#endif
 }
 
 int config_nio_load(config_nio_state_t *state)
@@ -366,11 +379,13 @@ int config_nio_load(config_nio_state_t *state)
   if (exists)
     parse_mappings(state, (const char *) store_buf);
 
+#ifndef CONFIG_NIO_BBC_LITE
   if (!appstore_read_text(CONFIG_NIO_KEY_PREFS, (char *) store_buf,
                           sizeof(store_buf), &exists))
     return 0;
   if (exists)
     parse_prefs(state, (const char *) store_buf);
+#endif
 
   (void) config_nio_refresh_slots(state);
   config_nio_set_status(state, "Ready");

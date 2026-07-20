@@ -23,8 +23,13 @@ static void list_cb(uint8_t is_dir, const char *name, uint32_t size,
 
   entry = &state->entries[state->entry_count++];
   entry->is_dir = is_dir;
+#ifndef CONFIG_NIO_BBC_LITE
   entry->size = size;
   entry->mtime = mtime;
+#else
+  (void) size;
+  (void) mtime;
+#endif
   n = (uint16_t) strlen(name);
   if (n > CONFIG_NIO_NAME_MAX)
     n = CONFIG_NIO_NAME_MAX;
@@ -74,7 +79,7 @@ static int enter_dir(config_nio_state_t *state, const char *name)
 
   len = (uint16_t) strlen(state->browse_path);
   nlen = (uint16_t) strlen(name);
-  if ((uint16_t) (len + nlen + 2) > FNSVC_MAX_PATH) {
+  if ((uint16_t) (len + nlen + 2) > CONFIG_NIO_PATH_MAX) {
     config_nio_set_status(state, "Path is too long");
     return 0;
   }

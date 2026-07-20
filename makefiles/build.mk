@@ -7,6 +7,10 @@ FNSVC_LIST_MAX_PAYLOAD ?= 420
 
 include makefiles/targets.mk
 
+ifeq ($(TARGET),bbc)
+FNSVC_LIST_MAX_PAYLOAD := 180
+endif
+
 APP_DIR := apps/common
 SRC_DIR := src
 APP_INCLUDE_DIR := include/common
@@ -49,12 +53,19 @@ else
 $(error Unknown compiler family '$(COMPILER_FAMILY)' for TARGET=$(TARGET))
 endif
 
-CONFIG_NIO_SRCS := \
+CONFIG_NIO_SRCS_COMMON := \
 	$(SRC_DIR)/common/config_nio_state.c \
 	$(SRC_DIR)/common/config_nio_store.c \
 	$(SRC_DIR)/common/config_nio_browse.c \
 	$(SRC_DIR)/common/config_nio_ui.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
+
+CONFIG_NIO_SRCS_bbc := \
+	$(SRC_DIR)/common/config_nio_state.c \
+	$(SRC_DIR)/common/config_nio_store.c \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
+
+CONFIG_NIO_SRCS := $(if $(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_COMMON))
 CONFIG_NIO_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CONFIG_NIO_SRCS))
 DEPENDS += $(CONFIG_NIO_OBJS:.o=.d)
 
@@ -100,7 +111,10 @@ endef
 $(foreach prog,$(PROGRAMS),$(eval $(call COMMON_PROGRAM_RULE,$(prog))))
 
 ifeq ($(TARGET),bbc)
-$(BIN_DIR)/config-nio$(PROGRAM_EXT): LDFLAGS := -t $(TARGET) --start-addr 0x0E00 -Wl -D,__HIMEM__=0x9000
+CFLAGS += -DCONFIG_NIO_BBC_LITE -DFNSVC_IO_BUF_SIZE=256 -DFNSVC_LIST_NAME_MAX=64
+BBC_CONFIG_NIO_START_ADDRESS ?= 0x1900
+BBC_CONFIG_NIO_HIMEM ?= 0x9000
+$(BIN_DIR)/config-nio$(PROGRAM_EXT): LDFLAGS := -t $(TARGET) --start-addr $(BBC_CONFIG_NIO_START_ADDRESS) -Wl -D,__HIMEM__=$(BBC_CONFIG_NIO_HIMEM)
 endif
 
 $(OBJ_DIR)/msdos/%.o: msdos/%.c | $(OBJ_DIR)

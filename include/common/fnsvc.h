@@ -6,6 +6,14 @@
 #define FNSVC_MAX_URI   255
 #define FNSVC_MAX_PATH  127
 
+#ifdef CONFIG_NIO_BBC_LITE
+#define FNSVC_MOUNT_URI_MAX 127
+#define FNSVC_MOUNT_MODE_MAX 4
+#else
+#define FNSVC_MOUNT_URI_MAX FNSVC_MAX_URI
+#define FNSVC_MOUNT_MODE_MAX 8
+#endif
+
 enum {
   FNSVC_STATUS_OK = 0
 };
@@ -24,8 +32,8 @@ enum {
 
 typedef struct {
   uint8_t enabled;
-  char uri[FNSVC_MAX_URI + 1];
-  char mode[8];
+  char uri[FNSVC_MOUNT_URI_MAX + 1];
+  char mode[FNSVC_MOUNT_MODE_MAX];
 } fnsvc_mount_t;
 
 typedef void (*fnsvc_list_cb)(uint8_t is_dir,
@@ -35,6 +43,13 @@ typedef void (*fnsvc_list_cb)(uint8_t is_dir,
                               void *ctx);
 
 int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx);
+#ifdef CONFIG_NIO_BBC_LITE
+int fnsvc_list_directory_page(const char *uri, uint16_t start,
+                              uint16_t max_payload, uint8_t max_entries,
+                              fnsvc_list_cb cb,
+                              void *ctx, uint16_t *next_start,
+                              uint8_t *more);
+#endif
 int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount);
 int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled);
 int fnsvc_disk_mount(uint8_t slot, const char *uri, uint8_t readonly);

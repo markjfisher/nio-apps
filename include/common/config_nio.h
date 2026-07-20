@@ -28,24 +28,38 @@
 #define CONFIG_NIO_COLOR_TITLEBAR 9
 #define CONFIG_NIO_COLOR_BUTTON 10
 #define CONFIG_NIO_COLOR_BUTTON_SELECT 11
-#ifdef __CC65__
+#ifdef CONFIG_NIO_BBC_LITE
+#define CONFIG_NIO_COLOR_COUNT 0
+#elif defined(__CC65__)
 #define CONFIG_NIO_COLOR_COUNT 1
 #else
 #define CONFIG_NIO_COLOR_COUNT 12
 #endif
 
-#ifdef __CC65__
+#ifdef CONFIG_NIO_BBC_LITE
+#define CONFIG_NIO_MAX_HOSTS 4
+#define CONFIG_NIO_MAX_ENTRIES 7
+#define CONFIG_NIO_URI_MAX 48
+#define CONFIG_NIO_NAME_MAX 31
+#define CONFIG_NIO_TEXT_MAX 192
+#define CONFIG_NIO_PATH_MAX 63
+#define CONFIG_NIO_STATUS_MAX 39
+#elif defined(__CC65__)
 #define CONFIG_NIO_MAX_HOSTS 4
 #define CONFIG_NIO_MAX_ENTRIES 5
 #define CONFIG_NIO_URI_MAX 48
 #define CONFIG_NIO_NAME_MAX 31
 #define CONFIG_NIO_TEXT_MAX 256
+#define CONFIG_NIO_PATH_MAX FNSVC_MAX_PATH
+#define CONFIG_NIO_STATUS_MAX 95
 #else
 #define CONFIG_NIO_MAX_HOSTS 8
 #define CONFIG_NIO_MAX_ENTRIES 20
 #define CONFIG_NIO_URI_MAX FNSVC_MAX_URI
 #define CONFIG_NIO_NAME_MAX 79
 #define CONFIG_NIO_TEXT_MAX 1024
+#define CONFIG_NIO_PATH_MAX FNSVC_MAX_PATH
+#define CONFIG_NIO_STATUS_MAX 95
 #endif
 
 typedef struct {
@@ -63,15 +77,21 @@ typedef struct {
 typedef struct {
   uint8_t is_dir;
   char name[CONFIG_NIO_NAME_MAX + 1];
+#ifndef CONFIG_NIO_BBC_LITE
   uint32_t size;
   uint32_t mtime;
+#endif
 } config_nio_entry_t;
 
 typedef struct {
+#ifndef CONFIG_NIO_BBC_LITE
   uint8_t date_format;
   uint8_t size_format;
   uint8_t color_fg[CONFIG_NIO_COLOR_COUNT];
   uint8_t color_bg[CONFIG_NIO_COLOR_COUNT];
+#else
+  uint8_t unused;
+#endif
 } config_nio_prefs_t;
 
 typedef struct {
@@ -84,8 +104,8 @@ typedef struct {
   uint8_t entry_count;
   uint16_t entry_total;
   uint8_t entries_truncated;
-  char browse_path[FNSVC_MAX_PATH + 1];
-  char status[96];
+  char browse_path[CONFIG_NIO_PATH_MAX + 1];
+  char status[CONFIG_NIO_STATUS_MAX + 1];
 } config_nio_state_t;
 
 int config_nio_load(config_nio_state_t *state);
