@@ -25,7 +25,6 @@
 
 static char dos_drive_label[16];
 static char dos_uri_edit[CONFIG_NIO_URI_MAX + 1];
-static char dos_mode_edit[4];
 static uint8_t dos_selected_slot;
 static uint8_t dos_selected_unit;
 static uint8_t dos_focus;
@@ -56,7 +55,6 @@ static uint8_t dos_browse_focus;
 #define DOS_SCREEN_HOSTS 1
 #define DOS_SCREEN_BROWSE 2
 #define DOS_SCREEN_SLOTS 3
-#define DOS_SCREEN_MAP 4
 #define DOS_SCREEN_PREFS 5
 
 #define DOS_PREF_LABEL_X 2
@@ -125,6 +123,7 @@ static void dos_anim_reset(void);
 static void dos_anim_tick(config_nio_state_t *state);
 static void dos_pref_cancel_edit(config_nio_state_t *state);
 static void dos_force_full_redraw(void);
+static void dos_mark_full_redraw(void);
 
 static int dos_key_is_quit(int key)
 {
@@ -370,22 +369,20 @@ static void dos_draw_input(WINDOW *win, int y, int x, int width,
 static int dos_curses_prompt(const char *title, const char *label,
                              char *buf, uint16_t cap)
 {
-  WINDOW *modal;
   uint16_t len;
   uint16_t cursor;
   uint16_t scroll;
   int width;
   int key;
   int result;
+  int x;
+  int y;
+  int w;
+  int h;
+  int row;
 
-  modal = newwin(7, 64, 8, 8);
-  if (!modal)
+  if (!buf || cap == 0)
     return 0;
-  keypad(modal, TRUE);
-  if (!buf || cap == 0) {
-    delwin(modal);
-    return 0;
-  }
   len = (uint16_t) strlen(buf);
   if (len >= cap) {
     len = (uint16_t) (cap - 1);
@@ -394,6 +391,12 @@ static int dos_curses_prompt(const char *title, const char *label,
   cursor = len;
   scroll = 0;
   width = 56;
+  x = 8;
+  y = 8;
+  w = 64;
+  h = 7;
+  timeout(-1);
+  wtimeout(stdscr, -1);
   curs_set(1);
 
   for (;;) {
@@ -402,15 +405,26 @@ static int dos_curses_prompt(const char *title, const char *label,
     while (cursor >= (uint16_t) (scroll + width))
       scroll++;
 
-    dos_clear_window(modal, DOS_COLOR_STATUS);
-    box(modal, 0, 0);
-    mvwaddnstr(modal, 0, 2, title ? title : " Edit ", 58);
-    mvwaddnstr(modal, 2, 2, label ? label : "Value", 18);
-    mvwaddstr(modal, 5, 2, "Enter accept  Esc cancel  Ctrl-A/E/K edit");
-    dos_draw_input(modal, 3, 3, width, buf, cursor, scroll);
-    wrefresh(modal);
+    attrset(COLOR_PAIR(DOS_COLOR_STATUS));
+    for (row = 0; row < h; row++) {
+      move(y + row, x);
+      dos_curses_print_clip(stdscr, "", w);
+    }
+    mvhline(y, x + 1, ACS_HLINE, w - 2);
+    mvhline(y + h - 1, x + 1, ACS_HLINE, w - 2);
+    mvvline(y + 1, x, ACS_VLINE, h - 2);
+    mvvline(y + 1, x + w - 1, ACS_VLINE, h - 2);
+    mvaddch(y, x, ACS_ULCORNER);
+    mvaddch(y, x + w - 1, ACS_URCORNER);
+    mvaddch(y + h - 1, x, ACS_LLCORNER);
+    mvaddch(y + h - 1, x + w - 1, ACS_LRCORNER);
+    mvaddnstr(y, x + 2, title ? title : " Edit ", w - 4);
+    mvaddnstr(y + 2, x + 2, label ? label : "Value", 18);
+    mvaddstr(y + 5, x + 2, "Enter accept  Esc cancel  Ctrl-A/E/K edit");
+    dos_draw_input(stdscr, y + 3, x + 3, width, buf, cursor, scroll);
+    refresh();
 
-    key = wgetch(modal);
+    key = wgetch(stdscr);
     if (key == DOS_KEY_ESC) {
       result = 0;
       break;
@@ -467,7 +481,7 @@ static int dos_curses_prompt(const char *title, const char *label,
   }
 
   curs_set(0);
-  delwin(modal);
+  dos_mark_full_redraw();
   return result;
 }
 
@@ -540,6 +554,55 @@ static int dos_confirm_quit(void)
   wtimeout(stdscr, DOS_ANIM_FRAME_MS);
   dos_force_full_redraw();
   return result;
+}
+
+static void dos_message_ok(const char *title, const char *message)
+{
+  int key;
+  int x;
+  int y;
+  int w;
+  int h;
+  int row;
+
+  x = 19;
+  y = 8;
+  w = 42;
+  h = 7;
+  timeout(-1);
+  wtimeout(stdscr, -1);
+  flushinp();
+
+  for (;;) {
+    attrset(COLOR_PAIR(DOS_COLOR_STATUS));
+    for (row = 0; row < h; row++) {
+      move(y + row, x);
+      dos_curses_print_clip(stdscr, "", w);
+    }
+    mvhline(y, x + 1, ACS_HLINE, w - 2);
+    mvhline(y + h - 1, x + 1, ACS_HLINE, w - 2);
+    mvvline(y + 1, x, ACS_VLINE, h - 2);
+    mvvline(y + 1, x + w - 1, ACS_VLINE, h - 2);
+    mvaddch(y, x, ACS_ULCORNER);
+    mvaddch(y, x + w - 1, ACS_URCORNER);
+    mvaddch(y + h - 1, x, ACS_LLCORNER);
+    mvaddch(y + h - 1, x + w - 1, ACS_LRCORNER);
+    mvaddnstr(y, x + 2, title ? title : " Message ", w - 4);
+    mvaddnstr(y + 2, x + 4, message ? message : "", w - 8);
+    attrset(COLOR_PAIR(DOS_COLOR_BUTTON_SELECT));
+    mvaddstr(y + 4, x + 17, " < Ok > ");
+    attrset(COLOR_PAIR(DOS_COLOR_STATUS));
+    refresh();
+
+    key = wgetch(stdscr);
+    if (key == DOS_KEY_ENTER || key == '\n' || key == '\r' ||
+        dos_key_is_escape(key) || key == 'o' || key == 'O')
+      break;
+  }
+
+  timeout(DOS_ANIM_FRAME_MS);
+  wtimeout(stdscr, DOS_ANIM_FRAME_MS);
+  dos_mark_full_redraw();
 }
 
 static short dos_pref_color(uint8_t value)
@@ -698,9 +761,7 @@ static void dos_draw_menu(void)
     x += 2; \
   } while (0)
   MENU_ITEM('H', "osts");
-  MENU_ITEM('B', "ack");
   MENU_ITEM('S', "lots");
-  MENU_ITEM('M', "ap");
   MENU_ITEM('P', "refs");
   attrset(COLOR_PAIR(DOS_COLOR_MENUBAR));
   mvaddstr(1, x, "Mount+E");
@@ -723,11 +784,9 @@ static const char *dos_screen_label(void)
     return "Browse";
   if (dos_screen == DOS_SCREEN_SLOTS)
     return "Slots";
-  if (dos_screen == DOS_SCREEN_MAP)
-    return "Mapping";
   if (dos_screen == DOS_SCREEN_PREFS)
     return "Preferences";
-  return "Dashboard";
+  return "Slots";
 }
 
 static void dos_draw_titlebar(void)
@@ -770,17 +829,6 @@ static const char *dos_browse_status(config_nio_state_t *state)
 
 static const char *dos_slot_status(config_nio_state_t *state)
 {
-  if (!state || dos_selected_slot >= FNCTL_MAX_UNITS)
-    return "Pick a slot to edit or clear";
-  sprintf(dos_status_buf, "Selected slot %u: %s",
-          (unsigned) dos_selected_slot,
-          state->slots[dos_selected_slot].enabled ? "mounted" : "empty");
-  return dos_status_buf;
-}
-
-static const char *dos_map_status(config_nio_state_t *state)
-{
-  (void) state;
   sprintf(dos_status_buf, "%s pane active, slot %u, drive %u",
           dos_focus ? "Drives" : "Slots",
           (unsigned) dos_selected_slot, (unsigned) dos_selected_unit);
@@ -806,9 +854,7 @@ static void dos_draw_slot_line(WINDOW *win, int y, uint8_t slot,
 
   dos_set_list_attr(win, selected, active);
   mvwprintw(win, y, 2, "%u ", (unsigned) slot);
-  dos_curses_print_clip(win, mount->enabled ? mount->mode : "--", 2);
-  waddch(win, ' ');
-  uri_width = 39;
+  uri_width = 44;
   if (mount->enabled && mount->uri[0]) {
     if (animate && selected && strlen(mount->uri) > uri_width) {
       offset = dos_anim_offset;
@@ -840,7 +886,7 @@ static void dos_draw_mapping_line(WINDOW *win, int y, config_nio_state_t *state,
     else
       dos_curses_print_clip(win, "(empty)", 12);
   } else {
-    dos_curses_print_clip(win, "(not mapped)", 17);
+    dos_curses_print_clip(win, "(unassigned)", 17);
   }
 }
 
@@ -849,24 +895,24 @@ static void dos_draw_side_mappings(config_nio_state_t *state)
   uint8_t i;
 
   dos_clear_window(dos_side_win, DOS_COLOR_BODY);
-  dos_win_title(dos_side_win, " Mappings ");
+  dos_win_title_focus(dos_side_win, " Drives ", dos_focus == 1);
   for (i = 0; i < FNCTL_MAX_UNITS; i++)
-    dos_draw_mapping_line(dos_side_win, (int) i + 2, state, i, 0, 0);
+    dos_draw_mapping_line(dos_side_win, (int) i + 2, state, i,
+                          dos_selected_unit == i, dos_focus == 1);
+  wattrset(dos_side_win, COLOR_PAIR(DOS_COLOR_TITLE));
+  mvwaddstr(dos_side_win, 11, 2, "Actions");
+  wattrset(dos_side_win, COLOR_PAIR(DOS_COLOR_BODY));
+  if (dos_focus == 1) {
+    mvwaddstr(dos_side_win, 12, 2, "Enter assign slot");
+    mvwaddstr(dos_side_win, 13, 2, "0-7 quick assign");
+    mvwaddstr(dos_side_win, 14, 2, "C clear  R ro/rw");
+  } else {
+    mvwaddstr(dos_side_win, 12, 2, "Tab focus drives");
+    mvwaddstr(dos_side_win, 13, 2, "E edit slot");
+    mvwaddstr(dos_side_win, 14, 2, "C clear slot");
+    mvwaddstr(dos_side_win, 15, 2, "Enter assign");
+  }
   wnoutrefresh(dos_side_win);
-}
-
-static void dos_draw_dashboard(config_nio_state_t *state)
-{
-  uint8_t i;
-
-  dos_clear_window(dos_main_win, DOS_COLOR_BODY);
-  dos_win_title_focus(dos_main_win, " Slots ", 1);
-  for (i = 0; i < FNCTL_MAX_UNITS; i++)
-    dos_draw_slot_line(dos_main_win, (int) i + 2, i, &state->slots[i], 0, 0, 0);
-  wnoutrefresh(dos_main_win);
-
-  dos_draw_side_mappings(state);
-  dos_draw_status("Dashboard: choose a menu command", "Ready");
 }
 
 static void dos_draw_hosts(config_nio_state_t *state)
@@ -905,44 +951,15 @@ static void dos_draw_slots_screen(config_nio_state_t *state)
   uint8_t i;
 
   dos_clear_window(dos_main_win, DOS_COLOR_BODY);
-  dos_win_title_focus(dos_main_win, " Slots ", 1);
-  for (i = 0; i < FNCTL_MAX_UNITS; i++)
-    dos_draw_slot_line(dos_main_win, (int) i + 2, i, &state->slots[i],
-                       dos_selected_slot == i, 1, 1);
-  wnoutrefresh(dos_main_win);
-
-  dos_draw_side_mappings(state);
-  dos_draw_status("Slots: arrows move, Enter edits, Tab focuses drive mappings",
-                  dos_slot_status(state));
-}
-
-static void dos_draw_map_screen(config_nio_state_t *state)
-{
-  uint8_t i;
-
-  dos_clear_window(dos_main_win, DOS_COLOR_BODY);
   dos_win_title_focus(dos_main_win, " Slots ", dos_focus == 0);
   for (i = 0; i < FNCTL_MAX_UNITS; i++)
     dos_draw_slot_line(dos_main_win, (int) i + 2, i, &state->slots[i],
                        dos_selected_slot == i, dos_focus == 0, 1);
   wnoutrefresh(dos_main_win);
 
-  dos_clear_window(dos_side_win, DOS_COLOR_BODY);
-  dos_win_title_focus(dos_side_win, " Drives ", dos_focus == 1);
-  for (i = 0; i < FNCTL_MAX_UNITS; i++)
-    dos_draw_mapping_line(dos_side_win, (int) i + 2, state, i,
-                          dos_selected_unit == i, dos_focus == 1);
-  wattrset(dos_side_win, COLOR_PAIR(DOS_COLOR_TITLE));
-  mvwaddstr(dos_side_win, 11, 2, "Actions");
-  wattrset(dos_side_win, COLOR_PAIR(DOS_COLOR_BODY));
-  mvwaddstr(dos_side_win, 12, 2, "Enter map pair");
-  mvwaddstr(dos_side_win, 13, 2, "0-7 quick map");
-  mvwaddstr(dos_side_win, 14, 2, "C clear  R ro/rw");
-  mvwaddstr(dos_side_win, 15, 2, "D clear slot URI");
-  wnoutrefresh(dos_side_win);
-
-  dos_draw_status("Map: Tab switches pane, arrows move selection, Enter maps pair",
-                  dos_map_status(state));
+  dos_draw_side_mappings(state);
+  dos_draw_status("Slots: Tab switches pane, E edits slot, Enter assigns slot to drive",
+                  dos_slot_status(state));
 }
 
 static const char *dos_pref_color_name(uint8_t value)
@@ -1320,7 +1337,10 @@ static int dos_refresh_entries(config_nio_state_t *state)
     return 0;
   }
   if (!fnsvc_list_directory(dos_uri_buf, dos_list_cb, state)) {
-    config_nio_set_status(state, "List failed");
+    sprintf(dos_status_buf, "Browse failed: error %u status %u",
+            (unsigned) fnsvc_last_error(),
+            (unsigned) fnsvc_last_status());
+    config_nio_set_status(state, dos_status_buf);
     return 0;
   }
   if (dos_selected_entry >= state->entry_count)
@@ -1408,7 +1428,7 @@ static void dos_anim_tick(config_nio_state_t *state)
     kind = DOS_ANIM_BROWSE;
     index = dos_selected_entry;
     width = 24;
-  } else if ((dos_screen == DOS_SCREEN_SLOTS || dos_screen == DOS_SCREEN_MAP) &&
+  } else if (dos_screen == DOS_SCREEN_SLOTS &&
              dos_selected_slot < FNCTL_MAX_UNITS &&
              state->slots[dos_selected_slot].enabled &&
              state->slots[dos_selected_slot].uri[0]) {
@@ -1591,6 +1611,25 @@ static void dos_force_full_redraw(void)
   touchwin(stdscr);
 }
 
+static void dos_mark_full_redraw(void)
+{
+  dos_last_screen = -1;
+  clearok(stdscr, TRUE);
+  if (dos_main_win) {
+    clearok(dos_main_win, TRUE);
+    touchwin(dos_main_win);
+  }
+  if (dos_side_win) {
+    clearok(dos_side_win, TRUE);
+    touchwin(dos_side_win);
+  }
+  if (dos_status_win) {
+    clearok(dos_status_win, TRUE);
+    touchwin(dos_status_win);
+  }
+  touchwin(stdscr);
+}
+
 static void dos_seed_default_prefs(config_nio_prefs_t *prefs)
 {
   prefs->date_format = CONFIG_NIO_PREF_DATE_YMD;
@@ -1607,8 +1646,8 @@ static void dos_seed_default_prefs(config_nio_prefs_t *prefs)
   prefs->color_bg[CONFIG_NIO_COLOR_STATUS] = 3;
   prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE] = 7;
   prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE] = 1;
-  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 0;
-  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 7;
+  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 7;
+  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 5;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUBAR] = 0;
   prefs->color_bg[CONFIG_NIO_COLOR_MENUBAR] = 7;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUHOT] = 4;
@@ -1631,12 +1670,10 @@ static void dos_redraw_app(config_nio_state_t *state)
     dos_draw_browser(state);
   else if (dos_screen == DOS_SCREEN_SLOTS)
     dos_draw_slots_screen(state);
-  else if (dos_screen == DOS_SCREEN_MAP)
-    dos_draw_map_screen(state);
   else if (dos_screen == DOS_SCREEN_PREFS)
     dos_draw_prefs_screen(state);
   else
-    dos_draw_dashboard(state);
+    dos_draw_slots_screen(state);
   doupdate();
 }
 
@@ -1653,7 +1690,10 @@ static void dos_open_browser(config_nio_state_t *state, uint8_t host)
   state->browse_path[0] = 0;
   dos_browser_cache_valid = 0;
   config_nio_set_status(state, "");
-  (void) dos_refresh_entries(state);
+  if (!dos_refresh_entries(state)) {
+    dos_message_ok(" Error ", "Error connecting to host");
+    return;
+  }
   dos_switch_screen(state, DOS_SCREEN_BROWSE);
 }
 
@@ -1779,11 +1819,11 @@ static void dos_handle_up(config_nio_state_t *state)
     else if (dos_browse_focus == 1 && dos_selected_slot > 0)
       dos_selected_slot--;
   }
-  else if ((dos_screen == DOS_SCREEN_SLOTS ||
-            (dos_screen == DOS_SCREEN_MAP && dos_focus == 0)) &&
+  else if (dos_screen == DOS_SCREEN_SLOTS && dos_focus == 0 &&
            dos_selected_slot > 0)
     dos_selected_slot--;
-  else if (dos_screen == DOS_SCREEN_MAP && dos_focus == 1 && dos_selected_unit > 0)
+  else if (dos_screen == DOS_SCREEN_SLOTS && dos_focus == 1 &&
+           dos_selected_unit > 0)
     dos_selected_unit--;
   else if (dos_screen == DOS_SCREEN_PREFS && dos_selected_pref > 0)
     dos_selected_pref--;
@@ -1801,11 +1841,10 @@ static void dos_handle_down(config_nio_state_t *state)
     else if (dos_browse_focus == 1 && dos_selected_slot + 1 < FNCTL_MAX_UNITS)
       dos_selected_slot++;
   }
-  else if ((dos_screen == DOS_SCREEN_SLOTS ||
-            (dos_screen == DOS_SCREEN_MAP && dos_focus == 0)) &&
+  else if (dos_screen == DOS_SCREEN_SLOTS && dos_focus == 0 &&
            dos_selected_slot + 1 < FNCTL_MAX_UNITS)
     dos_selected_slot++;
-  else if (dos_screen == DOS_SCREEN_MAP && dos_focus == 1 &&
+  else if (dos_screen == DOS_SCREEN_SLOTS && dos_focus == 1 &&
            dos_selected_unit + 1 < FNCTL_MAX_UNITS)
     dos_selected_unit++;
   else if (dos_screen == DOS_SCREEN_PREFS &&
@@ -1980,13 +2019,6 @@ static int dos_handle_key(config_nio_state_t *state, int key)
     config_nio_set_status(state, "Quit cancelled");
     return 1;
   }
-  if (key == 'b' || key == 'B') {
-    if (dos_screen != DOS_SCREEN_DASHBOARD) {
-      config_nio_set_status(state, "");
-      dos_switch_screen(state, DOS_SCREEN_DASHBOARD);
-    }
-    return 1;
-  }
   if (key == 'h' || key == 'H') {
     config_nio_set_status(state, "");
     dos_switch_screen(state, DOS_SCREEN_HOSTS);
@@ -1995,15 +2027,6 @@ static int dos_handle_key(config_nio_state_t *state, int key)
   if (key == 's' || key == 'S') {
     dos_switch_screen(state, DOS_SCREEN_SLOTS);
     config_nio_set_status(state, "");
-    return 1;
-  }
-  if (key == 'm' || key == 'M') {
-    if (dos_screen == DOS_SCREEN_MAP)
-      dos_map_selected(state);
-    else {
-      dos_switch_screen(state, DOS_SCREEN_MAP);
-      config_nio_set_status(state, "");
-    }
     return 1;
   }
   if (key == 'p' || key == 'P') {
@@ -2025,15 +2048,10 @@ static int dos_handle_key(config_nio_state_t *state, int key)
     return 1;
   }
   if ((key == DOS_KEY_TAB || key == KEY_LEFT || key == KEY_RIGHT) &&
-      (dos_screen == DOS_SCREEN_SLOTS || dos_screen == DOS_SCREEN_MAP ||
-       dos_screen == DOS_SCREEN_BROWSE)) {
-    if (dos_screen == DOS_SCREEN_MAP) {
+      (dos_screen == DOS_SCREEN_SLOTS || dos_screen == DOS_SCREEN_BROWSE)) {
+    if (dos_screen == DOS_SCREEN_SLOTS) {
       dos_focus = (uint8_t) !dos_focus;
       config_nio_set_status(state, dos_focus ? "Drives pane active" : "Slots pane active");
-    } else if (dos_screen == DOS_SCREEN_SLOTS) {
-      dos_focus = 1;
-      dos_switch_screen(state, DOS_SCREEN_MAP);
-      config_nio_set_status(state, "Drives pane active");
     } else {
       dos_browse_focus = (uint8_t) !dos_browse_focus;
       config_nio_set_status(state, dos_browse_focus ? "Slots pane active" : "Browse pane active");
@@ -2075,29 +2093,24 @@ static int dos_handle_key(config_nio_state_t *state, int key)
       dos_assign_selected_entry(state);
     }
   } else if (dos_screen == DOS_SCREEN_SLOTS) {
-    if (key == 'e' || key == 'E' || key == DOS_KEY_ENTER || key == '\n' || key == '\r') {
-      dos_edit_slot(state);
-    } else if (key == 'd' || key == 'D') {
-      dos_clear_slot(state);
-    } else if (key == 'r' || key == 'R') {
-      (void) config_nio_refresh_slots(state);
-      config_nio_set_status(state, "Slots refreshed");
-    }
-  } else if (dos_screen == DOS_SCREEN_MAP) {
     if (key == DOS_KEY_ENTER || key == '\n' || key == '\r') {
       dos_map_selected(state);
     } else if (dos_focus == 1 && key >= '0' && key <= '7' &&
                (uint8_t) (key - '0') < FNCTL_MAX_UNITS) {
       dos_selected_slot = (uint8_t) (key - '0');
       dos_map_selected(state);
-    } else if (key == 'r' || key == 'R') {
+    } else if (dos_focus == 1 && (key == 'r' || key == 'R')) {
       dos_toggle_mapping_mode(state);
     } else if (key == 'c' || key == 'C') {
-      dos_clear_mapping(state);
-    } else if (key == 'e' || key == 'E') {
+      if (dos_focus == 1)
+        dos_clear_mapping(state);
+      else
+        dos_clear_slot(state);
+    } else if (dos_focus == 0 && (key == 'e' || key == 'E')) {
       dos_edit_slot(state);
-    } else if (key == 'd' || key == 'D') {
-      dos_clear_slot(state);
+    } else if (dos_focus == 0 && (key == 'r' || key == 'R')) {
+      (void) config_nio_refresh_slots(state);
+      config_nio_set_status(state, "Slots refreshed");
     }
   } else if (dos_screen == DOS_SCREEN_PREFS) {
     if (key == 'e' || key == 'E')
@@ -2117,7 +2130,7 @@ static void dos_map_selected(config_nio_state_t *state)
   if (!state->mappings[dos_selected_unit].readonly)
     state->mappings[dos_selected_unit].readonly = 0;
   (void) config_nio_save_mappings(state);
-  config_nio_set_status(state, "Mapped selected slot to selected drive");
+  config_nio_set_status(state, "Assigned selected slot to selected drive");
 }
 
 static void dos_toggle_mapping_mode(config_nio_state_t *state)
@@ -2126,19 +2139,19 @@ static void dos_toggle_mapping_mode(config_nio_state_t *state)
 
   mapping = &state->mappings[dos_selected_unit];
   if (!mapping->valid) {
-    config_nio_set_status(state, "Select a mapped drive first");
+    config_nio_set_status(state, "Select an assigned drive first");
     return;
   }
   mapping->readonly = (uint8_t) !mapping->readonly;
   (void) config_nio_save_mappings(state);
-  config_nio_set_status(state, mapping->readonly ? "Mapping is read-only" : "Mapping is read/write");
+  config_nio_set_status(state, mapping->readonly ? "Drive is read-only" : "Drive is read/write");
 }
 
 static void dos_clear_mapping(config_nio_state_t *state)
 {
   memset(&state->mappings[dos_selected_unit], 0, sizeof(state->mappings[dos_selected_unit]));
   (void) config_nio_save_mappings(state);
-  config_nio_set_status(state, "Mapping cleared");
+  config_nio_set_status(state, "Drive assignment cleared");
 }
 
 static void dos_clear_slot(config_nio_state_t *state)
@@ -2154,18 +2167,12 @@ static void dos_clear_slot(config_nio_state_t *state)
 static void dos_edit_slot(config_nio_state_t *state)
 {
   strcpy(dos_uri_edit, state->slots[dos_selected_slot].uri);
-  strcpy(dos_mode_edit,
-         state->slots[dos_selected_slot].mode[0] ? state->slots[dos_selected_slot].mode : "rw");
 
   if (!dos_curses_prompt(" Edit slot ", "URI", dos_uri_edit, sizeof(dos_uri_edit)) ||
       !dos_uri_edit[0])
     return;
-  if (!dos_curses_prompt(" Edit slot ", "Mode ro/rw", dos_mode_edit, sizeof(dos_mode_edit)))
-    return;
-  if (stricmp(dos_mode_edit, "ro") != 0)
-    strcpy(dos_mode_edit, "rw");
 
-  if (fnsvc_set_mount(dos_selected_slot, dos_uri_edit, dos_mode_edit, 1)) {
+  if (fnsvc_set_mount(dos_selected_slot, dos_uri_edit, "rw", 1)) {
     (void) config_nio_refresh_slots(state);
     config_nio_set_status(state, "Slot saved");
   } else {
@@ -2324,7 +2331,7 @@ int config_nio_ui_run(config_nio_state_t *state)
     dos_selected_unit = 0;
 
   (void) config_nio_refresh_slots(state);
-  dos_screen = DOS_SCREEN_DASHBOARD;
+  dos_screen = DOS_SCREEN_SLOTS;
   dos_focus = 0;
   dos_browse_focus = 0;
   dos_browser_cache_valid = 0;

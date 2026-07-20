@@ -113,8 +113,6 @@ static void show_slots(config_nio_state_t *state)
       mount = &state->slots[i];
       config_nio_ui_print_uint((unsigned) i);
       config_nio_ui_print("  ");
-      config_nio_ui_print_padded(mount->enabled ? mount->mode : "--", 2);
-      config_nio_ui_print(" ");
       config_nio_ui_println(mount->enabled && mount->uri[0] ? mount->uri : "(empty)");
     }
     config_nio_ui_status(state->status);
@@ -136,13 +134,9 @@ static void show_slots(config_nio_state_t *state)
       uint8_t slot;
       if (prompt_index("Slot", FNCTL_MAX_UNITS, &slot)) {
         strcpy(uri_edit, state->slots[slot].uri);
-        strcpy(mode_edit, state->slots[slot].mode[0] ? state->slots[slot].mode : "rw");
         if (config_nio_ui_prompt("URI", uri_edit, sizeof(uri_edit)) &&
-            uri_edit[0] &&
-            config_nio_ui_prompt("Mode ro/rw", mode_edit, sizeof(mode_edit))) {
-          if (strcmp(mode_edit, "ro") != 0 && strcmp(mode_edit, "RO") != 0)
-            strcpy(mode_edit, "rw");
-          if (fnsvc_set_mount(slot, uri_edit, mode_edit, 1)) {
+            uri_edit[0]) {
+          if (fnsvc_set_mount(slot, uri_edit, "rw", 1)) {
             (void) config_nio_refresh_slots(state);
             config_nio_set_status(state, "Slot saved");
           } else {

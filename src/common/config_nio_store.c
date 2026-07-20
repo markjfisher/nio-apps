@@ -147,8 +147,8 @@ static void seed_prefs(config_nio_state_t *state)
   prefs->color_bg[CONFIG_NIO_COLOR_STATUS] = 3;
   prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE] = 7;
   prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE] = 1;
-  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 0;
-  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 7;
+  prefs->color_fg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 7;
+  prefs->color_bg[CONFIG_NIO_COLOR_INACTIVE_SELECT] = 5;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUBAR] = 0;
   prefs->color_bg[CONFIG_NIO_COLOR_MENUBAR] = 7;
   prefs->color_fg[CONFIG_NIO_COLOR_MENUHOT] = 4;

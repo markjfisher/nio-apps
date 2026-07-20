@@ -1,9 +1,11 @@
 #include "config_nio.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static char uri_buf[FNSVC_MAX_URI + 1];
+static char status_buf[48];
 
 static void list_cb(uint8_t is_dir, const char *name, uint32_t size,
                     uint32_t mtime, void *ctx)
@@ -43,7 +45,10 @@ static int refresh_entries(config_nio_state_t *state, uint8_t host)
   }
 
   if (!fnsvc_list_directory(uri_buf, list_cb, state)) {
-    config_nio_set_status(state, "List failed");
+    sprintf(status_buf, "Browse failed: error %u status %u",
+            (unsigned) fnsvc_last_error(),
+            (unsigned) fnsvc_last_status());
+    config_nio_set_status(state, status_buf);
     return 0;
   }
 
@@ -107,7 +112,8 @@ int config_nio_browse(config_nio_state_t *state, uint8_t host)
 
   state->browse_path[0] = 0;
   selected = 0;
-  (void) refresh_entries(state, host);
+  if (!refresh_entries(state, host))
+    return 0;
 
   for (;;) {
     uint8_t i;
