@@ -133,6 +133,14 @@ int config_nio_compose_uri(const char *host, const char *path,
 int config_nio_mount_mappings(config_nio_state_t *state);
 void config_nio_run(config_nio_state_t *state);
 int config_nio_ui_run(config_nio_state_t *state);
+#ifdef CONFIG_NIO_BBC_LITE
+int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
+                                         const char *uri,
+                                         uint16_t start,
+                                         uint8_t max_entries,
+                                         uint16_t *next_start,
+                                         uint8_t *more);
+#endif
 
 void config_nio_ui_clear(void);
 void config_nio_ui_header(const char *title, const char *hint);

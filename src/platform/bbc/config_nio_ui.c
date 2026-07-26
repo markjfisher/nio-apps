@@ -244,20 +244,6 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
   return 1;
 }
 
-static void copy_limited(char *dst, uint16_t cap, const char *src)
-{
-  uint16_t n;
-
-  if (!dst || cap == 0)
-    return;
-  n = src ? (uint16_t) strlen(src) : 0;
-  if (n >= cap)
-    n = (uint16_t) (cap - 1);
-  if (n)
-    memcpy(dst, src, n);
-  dst[n] = 0;
-}
-
 static void parent_path(char *path)
 {
   uint16_t len;
@@ -289,23 +275,6 @@ static int enter_dir(config_nio_state_t *state, const char *name)
   return 1;
 }
 
-static void browse_cb(uint8_t is_dir, const char *name, uint32_t size,
-                      uint32_t mtime, void *ctx)
-{
-  config_nio_state_t *state;
-  config_nio_entry_t entry;
-
-  (void) size;
-  (void) mtime;
-  state = (config_nio_state_t *) ctx;
-  if (state->entry_count >= CONFIG_NIO_MAX_ENTRIES)
-    return;
-  entry.is_dir = is_dir;
-  copy_limited(entry.name, sizeof(entry.name), name);
-  (void) config_nio_entry_set(state, state->entry_count, &entry);
-  state->entry_count++;
-}
-
 static int fetch_browse_page(config_nio_state_t *state)
 {
   uint8_t ok;
@@ -319,11 +288,11 @@ static int fetch_browse_page(config_nio_state_t *state)
     return 0;
   }
 
-  ok = (uint8_t) fnsvc_list_directory_page(uri_buf, browse_start,
-                                           BBC_LIST_PAYLOAD,
-                                           BBC_BROWSE_PAGE_ROWS,
-                                           browse_cb, state,
-                                           &browse_next, &browse_more);
+  ok = (uint8_t) fnsvc_config_nio_list_directory_page(state, uri_buf,
+                                                      browse_start,
+                                                      BBC_BROWSE_PAGE_ROWS,
+                                                      &browse_next,
+                                                      &browse_more);
   if (!ok) {
     config_nio_set_status(state, "Host error");
     return 0;

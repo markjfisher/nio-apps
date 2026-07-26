@@ -47,7 +47,7 @@ static uint8_t last_error;
 static uint8_t last_status;
 static uint8_t last_raw_error;
 static uint16_t last_response_len;
-static char list_name[BBC_LIST_NAME_MAX + 1];
+static config_nio_entry_t list_entry;
 
 static int fail(uint8_t error)
 {
@@ -89,17 +89,11 @@ static uint16_t get_u16le(const uint8_t *p)
   return (uint16_t) p[0] | ((uint16_t) p[1] << 8);
 }
 
-int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
-{
-  return fnsvc_list_directory_page(uri, 0, FNSVC_LIST_MAX_PAYLOAD,
-                                   CONFIG_NIO_MAX_ENTRIES, cb, ctx, NULL, NULL);
-}
-
-int fnsvc_list_directory_page(const char *uri, uint16_t start,
-                              uint16_t max_payload, uint8_t max_entries,
-                              fnsvc_list_cb cb,
-                              void *ctx, uint16_t *next_start,
-                              uint8_t *more)
+int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
+                                         const char *uri, uint16_t start,
+                                         uint8_t max_entries,
+                                         uint16_t *next_start,
+                                         uint8_t *more)
 {
   uint16_t uri_len;
   uint8_t status;
@@ -111,18 +105,21 @@ int fnsvc_list_directory_page(const char *uri, uint16_t start,
   uint16_t idx;
   uint8_t delivered;
   uint8_t flags;
+  uint16_t max_payload;
 
-  if (!uri || !cb || max_entries == 0)
+  if (!state || !uri || max_entries == 0)
     return fail(FNSVC_ERR_INVALID_ARG);
 
+  state->entry_count = 0;
   uri_len = (uint16_t) strlen(uri);
   last_error = FNSVC_ERR_NONE;
   last_status = 0;
   last_raw_error = 0;
   last_response_len = 0;
-
+  max_payload = FNSVC_LIST_MAX_PAYLOAD;
   if (max_payload > (uint16_t) (sizeof(resp_buf) - 10))
     max_payload = (uint16_t) (sizeof(resp_buf) - 10);
+
   if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
     return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
 
@@ -176,9 +173,10 @@ int fnsvc_list_directory_page(const char *uri, uint16_t start,
       copy_len = name_len;
       if (copy_len > BBC_LIST_NAME_MAX)
         copy_len = BBC_LIST_NAME_MAX;
-      memcpy(list_name, &resp_buf[pos], copy_len);
-      list_name[copy_len] = 0;
-      cb((uint8_t) (eflags & 0x01), list_name, 0, 0, ctx);
+      list_entry.is_dir = (uint8_t) (eflags & 0x01);
+      memcpy(list_entry.name, &resp_buf[pos], copy_len);
+      list_entry.name[copy_len] = 0;
+      (void) config_nio_entry_set(state, delivered, &list_entry);
       delivered++;
     }
     pos = (uint16_t) (pos + name_len);
@@ -188,6 +186,7 @@ int fnsvc_list_directory_page(const char *uri, uint16_t start,
     *next_start = (uint16_t) (start + delivered);
   if (more)
     *more = (uint8_t) (delivered < count || (flags & NIO_FILE_LIST_RESP_MORE) != 0);
+  state->entry_count = delivered;
   return 1;
 }
 
@@ -270,36 +269,6 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
 
   return service_call(NIO_DEVICEID_FUJI, NIO_FUJI_SET_MOUNT,
                       req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) &&
-         status == FNSVC_STATUS_OK;
-}
-
-int fnsvc_disk_mount(uint8_t slot, const char *uri, uint8_t readonly)
-{
-  uint8_t status;
-  uint16_t resp_len;
-  uint16_t uri_len;
-  uint16_t off;
-
-  if (!uri || slot >= FNCTL_MAX_UNITS)
-    return 0;
-  uri_len = (uint16_t) strlen(uri);
-  if (uri_len == 0 || 8 + uri_len > sizeof(req_buf))
-    return 0;
-
-  off = 0;
-  req_buf[off++] = NIO_DISK_VERSION;
-  req_buf[off++] = (uint8_t) (slot + 1);
-  req_buf[off++] = readonly ? 0x01 : 0x00;
-  req_buf[off++] = 0x00;
-  put_u16le(&req_buf[off], 512);
-  off += 2;
-  put_u16le(&req_buf[off], uri_len);
-  off += 2;
-  memcpy(&req_buf[off], uri, uri_len);
-  off = (uint16_t) (off + uri_len);
-
-  return service_call(NIO_DEVICEID_DISK, NIO_DISK_MOUNT,
-                      req_buf, off, resp_buf, 16, &status, &resp_len) &&
          status == FNSVC_STATUS_OK;
 }
 

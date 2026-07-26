@@ -25,6 +25,7 @@ static char host_tmp[CONFIG_NIO_URI_MAX + 1];
 
 #define CONFIG_NIO_APPSTORE_READ_MAX (CONFIG_NIO_APPSTORE_BUF_SIZE - 10)
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void append_digit(char *buf, uint16_t *off, uint8_t value)
 {
   buf[*off] = (char) ('0' + value);
@@ -32,7 +33,6 @@ static void append_digit(char *buf, uint16_t *off, uint8_t value)
   buf[*off] = 0;
 }
 
-#ifndef CONFIG_NIO_BBC_LITE
 static void append_uint(char *buf, uint16_t *off, uint8_t value)
 {
   if (value >= 10)
@@ -86,27 +86,19 @@ static int appstore_read_text(const char *key, char *buf, uint16_t cap,
   return 1;
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 static int appstore_write_text(const char *key, const char *buf)
 {
   fn_appstore_write_t wr;
   uint16_t len;
   uint8_t result;
-#ifdef CONFIG_NIO_BBC_LITE
-#endif
 
   len = (uint16_t) strlen(buf);
-#ifdef CONFIG_NIO_BBC_LITE
-  if (len > CONFIG_NIO_APPSTORE_READ_MAX)
-    return 0;
-  result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, 0,
-                             (const uint8_t *) buf, len, &wr);
-  return result == FN_OK && wr.bytes_written == len;
-#else
   result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, 0, (const uint8_t *) buf,
                              len, &wr);
   return result == FN_OK && wr.bytes_written == len;
-#endif
 }
+#endif
 
 #ifdef CONFIG_NIO_BBC_LITE
 static int appstore_write_chunk(const char *key, uint16_t *off,
@@ -471,8 +463,30 @@ int config_nio_save_mappings(const config_nio_state_t *state)
   uint16_t off;
 
 #ifdef CONFIG_NIO_BBC_LITE
+  fn_appstore_write_t wr;
+  uint8_t result;
+
   (void) state;
-#endif
+  off = 0;
+  for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {
+    config_nio_mapping_t mapping;
+
+    if (!config_nio_mapping_get(state, unit, &mapping) || !mapping.valid)
+      continue;
+    if ((uint16_t) (off + 5) > sizeof(store_buf))
+      return 0;
+    store_buf[off++] = (uint8_t) ('0' + unit);
+    store_buf[off++] = '\t';
+    store_buf[off++] = (uint8_t) ('0' + mapping.slot);
+    store_buf[off++] = '\t';
+    store_buf[off++] = mapping.readonly ? 'r' : 'r';
+    store_buf[off++] = mapping.readonly ? 'o' : 'w';
+    store_buf[off++] = '\n';
+  }
+  result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, CONFIG_NIO_KEY_MAPPINGS,
+                             0, store_buf, off, &wr);
+  return result == FN_OK && wr.bytes_written == off;
+#else
   off = 0;
   store_buf[0] = 0;
   for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {
@@ -492,6 +506,7 @@ int config_nio_save_mappings(const config_nio_state_t *state)
     store_buf[off] = 0;
   }
   return appstore_write_text(CONFIG_NIO_KEY_MAPPINGS, (const char *) store_buf);
+#endif
 }
 
 int config_nio_save_prefs(const config_nio_state_t *state)
