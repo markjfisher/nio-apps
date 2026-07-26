@@ -7,7 +7,7 @@
         .import _cgetc
         .import _cursor
         .import _config_nio_bbc_cursor
-        .importzp ptr1, tmp1, tmp2, tmp3, tmp4
+        .importzp ptr1
 
         .include "oslib/os.inc"
 
@@ -35,6 +35,18 @@ edit_max:
         .res    1
 edit_start:
         .res    1
+edit_key:
+        .res    1
+edit_ch:
+        .res    1
+edit_dst:
+        .res    1
+edit_col:
+        .res    1
+edit_src:
+        .res    1
+edit_cursor_x:
+        .res    1
 
         .code
 
@@ -43,13 +55,17 @@ _config_nio_bbc_edit_line:
         jsr     load_buf_ptr
         lda     ptr1
         ora     ptr1+1
-        beq     return0
+        beq     @bad
         lda     _config_nio_bbc_edit_cap
-        beq     return0
+        beq     @bad
         sec
         sbc     #1
         sta     edit_max
+        jmp     @init_ok
+@bad:
+        jmp     return0
 
+@init_ok:
         ldy     #0
 @len_loop:
         cpy     edit_max
@@ -66,13 +82,13 @@ _config_nio_bbc_edit_line:
         jsr     cursor_off
         jsr     draw_field
 
-@read:
+edit_read:
         jsr     cursor_on
         jsr     _cgetc
-        sta     tmp1                    ; low byte is the useful key code
+        sta     edit_key                ; low byte is the useful key code
         jsr     cursor_off
         jsr     load_buf_ptr
-        lda     tmp1
+        lda     edit_key
         cmp     #CH_ESC
         beq     return0
         cmp     #CH_EOL
@@ -80,27 +96,55 @@ _config_nio_bbc_edit_line:
         cmp     #$0A
         beq     return1
         cmp     #CH_CURS_LEFT
-        beq     key_left
+        beq     do_key_left
         cmp     #$01                    ; Ctrl-A
-        beq     key_home
+        beq     do_key_home
         cmp     #CH_CURS_RIGHT
-        beq     key_right
+        beq     do_key_right
         cmp     #$05                    ; Ctrl-E
-        beq     key_end
+        beq     do_key_end
         cmp     #$0B                    ; Ctrl-K
-        beq     key_kill
+        beq     do_key_kill
         cmp     #CH_DEL
-        beq     key_backspace
+        beq     do_key_backspace
         cmp     #$04                    ; Ctrl-D/delete under cursor
-        beq     key_delete
+        beq     do_key_delete
         cmp     #$20
-        bcc     @redraw
+        bcc     edit_redraw
         cmp     #$7F
-        bcs     @redraw
+        bcs     edit_redraw
         jsr     key_insert
-@redraw:
+edit_redraw:
         jsr     draw_field
-        jmp     @read
+        jmp     edit_read
+
+do_key_home:
+        jsr     key_home
+        jmp     edit_redraw
+
+do_key_end:
+        jsr     key_end
+        jmp     edit_redraw
+
+do_key_left:
+        jsr     key_left
+        jmp     edit_redraw
+
+do_key_right:
+        jsr     key_right
+        jmp     edit_redraw
+
+do_key_kill:
+        jsr     key_kill
+        jmp     edit_redraw
+
+do_key_backspace:
+        jsr     key_backspace
+        jmp     edit_redraw
+
+do_key_delete:
+        jsr     key_delete
+        jmp     edit_redraw
 
 return0:
         jsr     cursor_off
@@ -159,21 +203,30 @@ key_delete:
 @done: rts
 
 delete_at_pos:
-        ldy     edit_pos
+        lda     edit_pos
+        sta     edit_dst
 @loop:
-        iny
+        lda     edit_dst
+        clc
+        adc     #1
+        tay                             ; source index
+        jsr     load_buf_ptr
         lda     (ptr1),y
-        dey
+        pha
+        ldy     edit_dst
+        pla
         sta     (ptr1),y
+        cmp     #0
         beq     @done
-        iny
+        inc     edit_dst
         jmp     @loop
 @done:
         dec     edit_len
         rts
 
 key_insert:
-        sta     tmp2
+        sta     edit_ch
+        jsr     load_buf_ptr
         lda     edit_len
         cmp     edit_max
         bcc     @insert_room
@@ -181,7 +234,7 @@ key_insert:
         cmp     edit_len
         bcs     @done
         ldy     edit_pos
-        lda     tmp2
+        lda     edit_ch
         sta     (ptr1),y
         inc     edit_pos
         rts
@@ -199,7 +252,7 @@ key_insert:
         jmp     @shift
 @place:
         ldy     edit_pos
-        lda     tmp2
+        lda     edit_ch
         sta     (ptr1),y
         inc     edit_len
         inc     edit_pos
@@ -229,22 +282,23 @@ draw_field:
         jsr     OSWRCH
 
         lda     #0
-        sta     tmp3                    ; visible column
+        sta     edit_col
         lda     edit_start
-        sta     tmp4                    ; source index
+        sta     edit_src
 @draw_loop:
-        ldy     tmp4
+        ldy     edit_src
         cpy     edit_len
         bcs     @space
+        jsr     load_buf_ptr
         lda     (ptr1),y
         bne     @put
 @space:
         lda     #' '
 @put:
         jsr     OSWRCH
-        inc     tmp4
-        inc     tmp3
-        lda     tmp3
+        inc     edit_src
+        inc     edit_col
+        lda     edit_col
         cmp     _config_nio_bbc_edit_width
         bcc     @draw_loop
 
@@ -259,10 +313,10 @@ draw_field:
 @cursor_col_ok:
         clc
         adc     _config_nio_bbc_edit_x
-        sta     tmp3
+        sta     edit_cursor_x
         lda     #31
         jsr     OSWRCH
-        lda     tmp3
+        lda     edit_cursor_x
         jsr     OSWRCH
         lda     #EDIT_ROW
         jmp     OSWRCH
