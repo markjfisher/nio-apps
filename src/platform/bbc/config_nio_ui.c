@@ -8,7 +8,7 @@
 #define BBC_ROWS 24
 #define BBC_DRIVE_COUNT 4
 #define BBC_BROWSE_PAGE_ROWS 10
-#define BBC_URI_WORK_MAX 64
+#define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
 
 enum {
@@ -156,7 +156,7 @@ static void pause_line(const char *s)
 
 static int key_is_quit(int key)
 {
-  return key == 'q' || key == 'Q' || key == 27;
+  return key == 'q' || key == 'Q' || key == CH_ESC;
 }
 
 static int key_is_up(int key)
@@ -169,7 +169,62 @@ static int key_is_down(int key)
   return key == CH_CURS_DOWN || key == 's';
 }
 
-int bbc_read_line(char *buf, uint8_t size, uint8_t min_char, uint8_t max_char);
+static int key_is_escape(int key)
+{
+  return key == CH_ESC;
+}
+
+static uint16_t edit_len(const char *s, uint16_t max_len)
+{
+  uint16_t len;
+
+  len = 0;
+  while (len < max_len && s[len])
+    len++;
+  return len;
+}
+
+static uint8_t label_width(const char *label)
+{
+  uint8_t len;
+
+  len = 0;
+  while (label && label[len] && len < 12)
+    len++;
+  return len;
+}
+
+static uint16_t edit_view_start(uint16_t cursor, uint16_t len, uint8_t width)
+{
+  uint16_t start;
+
+  if (len < width || cursor < width)
+    return 0;
+
+  start = (uint16_t) (cursor - width + 1);
+  if ((uint16_t) (len + 1) > width &&
+      (uint16_t) (start + width) > (uint16_t) (len + 1))
+    start = (uint16_t) (len + 1 - width);
+  return start;
+}
+
+static void draw_edit_field(const char *buf, uint16_t len, uint16_t cursor,
+                            uint8_t x, uint8_t y, uint8_t width)
+{
+  uint16_t start;
+  uint16_t index;
+  uint8_t i;
+
+  start = edit_view_start(cursor, len, width);
+  gotoxy(x, y);
+  for (i = 0; i < width; i++) {
+    index = (uint16_t) (start + i);
+    if (index == cursor)
+      cputc('_');
+    else
+      cputc(index < len ? buf[index] : ' ');
+  }
+}
 
 static int prompt_slot(uint8_t *slot_out)
 {
@@ -182,7 +237,7 @@ static int prompt_slot(uint8_t *slot_out)
   cputs("Slot 0-7: ");
   for (;;) {
     key = cgetc();
-    if (key == CH_ESC) {
+    if (key_is_escape(key)) {
       clear_line(22);
       return 0;
     }
@@ -198,40 +253,90 @@ static int prompt_slot(uint8_t *slot_out)
 
 static int prompt_line(const char *label, char *buf, uint16_t cap)
 {
-  uint16_t i;
+  uint16_t len;
+  uint16_t cursor;
+  uint16_t max_len;
+  uint8_t label_len;
   uint8_t width;
+  uint8_t x;
+  int key;
 
   if (!buf || cap == 0)
     return 0;
 
-  width = (uint8_t) (BBC_WIDTH - 14);
+  label_len = label_width(label ? label : "Value");
+  x = (uint8_t) (label_len + 2);
+  width = (uint8_t) (BBC_WIDTH - x);
   if (cap <= width)
     width = (uint8_t) (cap - 1);
   if (width == 0)
     return 0;
 
-  buf[0] = 0;
-  buf[width] = 0;
+  max_len = (uint16_t) (cap - 1);
+  len = edit_len(buf, max_len);
+  buf[len] = 0;
+  cursor = len;
 
   clear_line(22);
-  put_fixed(label ? label : "Value", 12);
+  cputs(label ? label : "Value");
   cputs(": ");
+  draw_edit_field(buf, len, cursor, x, 22, width);
 
-  if (!bbc_read_line(buf, width, 32, 126)) {
-    clear_line(22);
-    return 0;
-  }
-
-  for (i = 0; i < width; i++) {
-    if (buf[i] == 0 || buf[i] == '\r' || buf[i] == '\n') {
-      buf[i] = 0;
-      break;
+  for (;;) {
+    key = cgetc();
+    if (key_is_escape(key)) {
+      clear_line(22);
+      return 0;
     }
-  }
-  buf[width] = 0;
+    if (key == CH_EOL || key == '\r' || key == '\n') {
+      clear_line(22);
+      return 1;
+    }
+    if (key == CH_CURS_LEFT || key == 1) {
+      if (key == 1)
+        cursor = 0;
+      else if (cursor > 0)
+        cursor--;
+    } else if (key == CH_CURS_RIGHT || key == 5) {
+      if (key == 5)
+        cursor = len;
+      else if (cursor < len)
+        cursor++;
+    } else if (key == 11) {
+      len = cursor;
+      buf[len] = 0;
+    } else if (key == CH_DEL) {
+      if (cursor > 0) {
+        uint16_t i;
 
-  clear_line(22);
-  return 1;
+        cursor--;
+        for (i = cursor; i < len; i++)
+          buf[i] = buf[i + 1];
+        len--;
+      }
+    } else if (key == 4) {
+      if (cursor < len) {
+        uint16_t i;
+
+        for (i = cursor; i < len; i++)
+          buf[i] = buf[i + 1];
+        len--;
+      }
+    } else if (key >= 32 && key <= 126) {
+      if (len < max_len) {
+        uint16_t i;
+
+        for (i = len; i > cursor; i--)
+          buf[i] = buf[i - 1];
+        buf[cursor++] = (char) key;
+        len++;
+        buf[len] = 0;
+      } else if (cursor < len) {
+        buf[cursor++] = (char) key;
+      }
+    }
+    draw_edit_field(buf, len, cursor, x, 22, width);
+  }
 }
 
 static void parent_path(char *path)
@@ -431,8 +536,9 @@ static void edit_host(config_nio_state_t *state)
     return;
   }
   if (selected_host < state->host_count)
-    config_nio_set_status(state, "Re-enter host");
-  edit_buf[0] = 0;
+    (void) config_nio_host_get(state, selected_host, edit_buf, sizeof(edit_buf));
+  else
+    edit_buf[0] = 0;
   if (!prompt_line("Host", edit_buf, sizeof(edit_buf)) || !edit_buf[0])
     return;
   (void) config_nio_host_set(state, selected_host, edit_buf);

@@ -18,21 +18,21 @@ XRAM_BANK       = 7
 XRAM_BASE_HI    = $80
 
 HOST_MAX        = 16
-HOST_SIZE       = 64
+HOST_SIZE       = $A1
 
 SLOT_MAX        = 8
-SLOT_BASE_LO    = $00
-SLOT_BASE_HI    = $84
-SLOT_SIZE       = $45
+SLOT_BASE_LO    = $10
+SLOT_BASE_HI    = $8A
+SLOT_SIZE       = $A6
 
 MAPPING_MAX     = 8
-MAPPING_BASE_LO = $28
-MAPPING_BASE_HI = $86
+MAPPING_BASE_LO = $40
+MAPPING_BASE_HI = $8F
 MAPPING_SIZE    = 3
 
 ENTRY_MAX       = 14
-ENTRY_BASE_LO   = $40
-ENTRY_BASE_HI   = $86
+ENTRY_BASE_LO   = $58
+ENTRY_BASE_HI   = $8F
 ENTRY_SIZE      = $25
 
         .code
@@ -79,21 +79,22 @@ copy_done:
         rts
 
 host_ptr:
-        tax
-        and     #$03
-        asl
-        asl
-        asl
-        asl
-        asl
-        asl
+        sta     tmp2
+        lda     #0
         sta     ptr1
-        txa
-        lsr
-        lsr
-        clc
-        adc     #XRAM_BASE_HI
+        lda     #XRAM_BASE_HI
         sta     ptr1+1
+        lda     tmp2
+        beq     @done
+@loop:  clc
+        lda     ptr1
+        adc     #HOST_SIZE
+        sta     ptr1
+        bcc     @next
+        inc     ptr1+1
+@next:  dec     tmp2
+        bne     @loop
+@done:
         rts
 
 slot_ptr:

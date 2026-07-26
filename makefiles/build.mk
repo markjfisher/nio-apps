@@ -24,20 +24,21 @@ DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 COMMON_APP_SRCS := $(sort $(wildcard $(APP_DIR)/*.c))
 COMMON_PROGRAMS_ALL := $(basename $(notdir $(COMMON_APP_SRCS)))
-COMMON_PROGRAMS_EXCLUDE_msdos := fsioraw
-COMMON_PROGRAMS_EXCLUDE_atari := fboot
+COMMON_PROGRAMS_EXCLUDE_msdos := fsioraw keycode
+COMMON_PROGRAMS_EXCLUDE_atari := fboot keycode
 COMMON_PROGRAMS_EXCLUDE_bbc := fboot fsioraw
-COMMON_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw config-nio
+COMMON_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw config-nio keycode
+COMMON_PROGRAMS_EXCLUDE_linux := keycode
 COMMON_PROGRAMS_EXCLUDE := $(COMMON_PROGRAMS_EXCLUDE_$(TARGET))
 PROGRAMS := $(filter-out $(COMMON_PROGRAMS_EXCLUDE),$(COMMON_PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
 
-STANDALONE_PROGRAMS := astest clock fhttpbin irqmon
+STANDALONE_PROGRAMS := astest clock fhttpbin irqmon keycode
 ifeq ($(TARGET),bbc)
 STANDALONE_PROGRAMS += config-nio
 endif
-NO_NIO_LIB_PROGRAMS := irqmon
+NO_NIO_LIB_PROGRAMS := irqmon keycode
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
 APP_OBJS := $(PROGRAMS:%=$(OBJ_DIR)/$(APP_DIR)/%.o)
@@ -72,7 +73,6 @@ CONFIG_NIO_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
 
 CONFIG_NIO_ASM_SRCS_bbc := \
-	$(SRC_DIR)/platform/$(PLATFORM)/bbc_read_line.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_state.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_tables.s \

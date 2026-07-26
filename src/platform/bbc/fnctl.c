@@ -6,7 +6,9 @@
 #include <stddef.h>
 #include <string.h>
 
+#ifndef CONFIG_NIO_BBC_LITE
 static uint16_t last_dos_error;
+#endif
 #ifndef CONFIG_NIO_BBC_LITE
 #define FNCTL_APP_NS "nio.apps"
 #define FNCTL_STATE_NS "fujinet-nio"
@@ -147,6 +149,7 @@ int fnctl_set_unit_slot(uint8_t unit, uint8_t slot)
 }
 #endif
 
+#ifndef CONFIG_NIO_BBC_LITE
 int fnctl_nio_call(uint8_t device, uint8_t command,
                    const void *request, uint16_t request_len,
                    void *response, uint16_t response_capacity,
@@ -181,6 +184,7 @@ uint16_t fnctl_last_dos_error(void)
 {
   return last_dos_error;
 }
+#endif
 
 #ifndef CONFIG_NIO_BBC_LITE
 const char *fnctl_status_name(uint8_t status)

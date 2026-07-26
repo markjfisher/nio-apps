@@ -1,7 +1,8 @@
 #include "config_nio.h"
 #include "fnsvc.h"
 
-#include "fnctl.h"
+#include "fn_bbc_internal.h"
+#include "fujinet-nio.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -37,8 +38,8 @@ enum {
 #define FNSVC_LIST_MAX_PAYLOAD 120
 #endif
 
-#define BBC_REQ_BUF_SIZE 80
-#define BBC_RESP_BUF_SIZE 136
+#define BBC_REQ_BUF_SIZE 170
+#define BBC_RESP_BUF_SIZE 130
 #define BBC_LIST_NAME_MAX CONFIG_NIO_NAME_MAX
 
 static uint8_t req_buf[BBC_REQ_BUF_SIZE];
@@ -53,40 +54,6 @@ static int fail(uint8_t error)
 {
   last_error = error;
   return 0;
-}
-
-static int service_call(uint8_t device, uint8_t command,
-                        const void *request, uint16_t request_len,
-                        void *response, uint16_t response_capacity,
-                        uint8_t *status, uint16_t *response_len)
-{
-  if (!fnctl_nio_call(device, command, request, request_len,
-                      response, response_capacity, status, response_len)) {
-    last_raw_error = (uint8_t) fnctl_last_dos_error();
-    return 0;
-  }
-  last_raw_error = 0;
-  return 1;
-}
-
-static void zero_bytes(void *ptr, uint16_t len)
-{
-  uint8_t *p;
-
-  p = (uint8_t *) ptr;
-  while (len--)
-    *p++ = 0;
-}
-
-static void put_u16le(uint8_t *p, uint16_t value)
-{
-  p[0] = (uint8_t) value;
-  p[1] = (uint8_t) (value >> 8);
-}
-
-static uint16_t get_u16le(const uint8_t *p)
-{
-  return (uint16_t) p[0] | ((uint16_t) p[1] << 8);
 }
 
 int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
@@ -106,6 +73,7 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
   uint8_t delivered;
   uint8_t flags;
   uint16_t max_payload;
+  uint8_t result;
 
   if (!state || !uri || max_entries == 0)
     return fail(FNSVC_ERR_INVALID_ARG);
@@ -125,19 +93,24 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
 
   off = 0;
   req_buf[off++] = NIO_FILE_VERSION;
-  put_u16le(&req_buf[off], uri_len);
-  off += 2;
+  req_buf[off++] = (uint8_t) uri_len;
+  req_buf[off++] = (uint8_t) (uri_len >> 8);
   memcpy(&req_buf[off], uri, uri_len);
   off += uri_len;
-  put_u16le(&req_buf[off], start);
-  off += 2;
-  put_u16le(&req_buf[off], max_payload);
-  off += 2;
+  req_buf[off++] = (uint8_t) start;
+  req_buf[off++] = (uint8_t) (start >> 8);
+  req_buf[off++] = (uint8_t) max_payload;
+  req_buf[off++] = (uint8_t) (max_payload >> 8);
   req_buf[off++] = NIO_FILE_LIST_FLAG_SORT_BY_NAME | NIO_FILE_LIST_FLAG_COMPACT;
 
-  if (!service_call(NIO_DEVICEID_FILE, NIO_FILE_LIST_DIRECTORY,
-                    req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len))
+  result = fn_bbc_device_call_raw(NIO_DEVICEID_FILE, NIO_FILE_LIST_DIRECTORY,
+                                  req_buf, off, resp_buf, sizeof(resp_buf),
+                                  &status, &resp_len);
+  if (result != FN_OK) {
+    last_raw_error = result;
     return fail(FNSVC_ERR_TRANSPORT);
+  }
+  last_raw_error = 0;
 
   last_status = status;
   last_response_len = resp_len;
@@ -149,8 +122,8 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
     return fail(FNSVC_ERR_BAD_VERSION);
 
   flags = resp_buf[1];
-  count = get_u16le(&resp_buf[6]);
-  entries_len = get_u16le(&resp_buf[8]);
+  count = (uint16_t) resp_buf[6] | ((uint16_t) resp_buf[7] << 8);
+  entries_len = (uint16_t) resp_buf[8] | ((uint16_t) resp_buf[9] << 8);
   if ((uint16_t) (10 + entries_len) > resp_len)
     return fail(FNSVC_ERR_ENTRIES_BOUNDS);
 
@@ -196,16 +169,24 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
   uint16_t resp_len;
   uint16_t off;
   uint8_t len;
+  uint8_t result;
 
   if (!mount || slot >= FNCTL_MAX_UNITS)
     return 0;
   last_error = FNSVC_ERR_NONE;
-  zero_bytes(mount, sizeof(*mount));
+  mount->enabled = 0;
+  mount->uri[0] = 0;
+  mount->mode[0] = 0;
   req_buf[0] = slot;
 
-  if (!service_call(NIO_DEVICEID_FUJI, NIO_FUJI_GET_MOUNT,
-                    req_buf, 1, resp_buf, sizeof(resp_buf), &status, &resp_len))
+  result = fn_bbc_device_call_raw(NIO_DEVICEID_FUJI, NIO_FUJI_GET_MOUNT,
+                                  req_buf, 1, resp_buf, sizeof(resp_buf),
+                                  &status, &resp_len);
+  if (result != FN_OK) {
+    last_raw_error = result;
     return fail(FNSVC_ERR_TRANSPORT);
+  }
+  last_raw_error = 0;
 
   last_status = status;
   last_response_len = resp_len;
@@ -242,6 +223,7 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
   uint8_t uri_len;
   uint8_t mode_len;
   uint16_t off;
+  uint8_t result;
 
   if (!uri)
     uri = "";
@@ -267,9 +249,15 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
   memcpy(&req_buf[off], mode, mode_len);
   off = (uint16_t) (off + mode_len);
 
-  return service_call(NIO_DEVICEID_FUJI, NIO_FUJI_SET_MOUNT,
-                      req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len) &&
-         status == FNSVC_STATUS_OK;
+  result = fn_bbc_device_call_raw(NIO_DEVICEID_FUJI, NIO_FUJI_SET_MOUNT,
+                                  req_buf, off, resp_buf, sizeof(resp_buf),
+                                  &status, &resp_len);
+  if (result != FN_OK) {
+    last_raw_error = result;
+    return 0;
+  }
+  last_raw_error = 0;
+  return status == FNSVC_STATUS_OK;
 }
 
 uint8_t fnsvc_last_error(void)
