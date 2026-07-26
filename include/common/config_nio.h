@@ -37,12 +37,12 @@
 #endif
 
 #ifdef CONFIG_NIO_BBC_LITE
-#define CONFIG_NIO_MAX_HOSTS 4
-#define CONFIG_NIO_MAX_ENTRIES 10
-#define CONFIG_NIO_URI_MAX 24
-#define CONFIG_NIO_NAME_MAX 31
-#define CONFIG_NIO_TEXT_MAX 160
-#define CONFIG_NIO_PATH_MAX 31
+#define CONFIG_NIO_MAX_HOSTS 16
+#define CONFIG_NIO_MAX_ENTRIES 14
+#define CONFIG_NIO_URI_MAX 63
+#define CONFIG_NIO_NAME_MAX 35
+#define CONFIG_NIO_TEXT_MAX 768
+#define CONFIG_NIO_PATH_MAX 63
 #define CONFIG_NIO_STATUS_MAX 0
 #elif defined(__CC65__)
 #define CONFIG_NIO_MAX_HOSTS 4
@@ -96,6 +96,14 @@ typedef struct {
 
 typedef struct {
   uint8_t host_count;
+#ifdef CONFIG_NIO_BBC_LITE
+  config_nio_prefs_t prefs;
+  uint8_t entry_count;
+  uint16_t entry_total;
+  uint8_t entries_truncated;
+  char browse_path[CONFIG_NIO_PATH_MAX + 1];
+  char status[CONFIG_NIO_STATUS_MAX + 1];
+#else
   char hosts[CONFIG_NIO_MAX_HOSTS][CONFIG_NIO_URI_MAX + 1];
   config_nio_slot_t slots[FNCTL_MAX_UNITS];
   config_nio_mapping_t mappings[FNCTL_MAX_UNITS];
@@ -106,6 +114,7 @@ typedef struct {
   uint8_t entries_truncated;
   char browse_path[CONFIG_NIO_PATH_MAX + 1];
   char status[CONFIG_NIO_STATUS_MAX + 1];
+#endif
 } config_nio_state_t;
 
 int config_nio_load(config_nio_state_t *state);
@@ -138,5 +147,24 @@ uint8_t config_nio_ui_screen_width(void);
 uint8_t config_nio_ui_screen_height(void);
 void config_nio_ui_drive_label(uint8_t unit, char *buf, uint8_t cap);
 int config_nio_ui_show_mappings(config_nio_state_t *state);
+
+int config_nio_host_get(const config_nio_state_t *state, uint8_t index,
+                        char *buf, uint16_t cap);
+int config_nio_host_set(config_nio_state_t *state, uint8_t index,
+                        const char *value);
+int config_nio_host_clear(config_nio_state_t *state, uint8_t index);
+int config_nio_entry_get(const config_nio_state_t *state, uint8_t index,
+                         config_nio_entry_t *entry);
+int config_nio_entry_set(config_nio_state_t *state, uint8_t index,
+                         const config_nio_entry_t *entry);
+int config_nio_slot_get(const config_nio_state_t *state, uint8_t index,
+                        config_nio_slot_t *slot);
+int config_nio_slot_set(config_nio_state_t *state, uint8_t index,
+                        const config_nio_slot_t *slot);
+int config_nio_mapping_get(const config_nio_state_t *state, uint8_t unit,
+                           config_nio_mapping_t *mapping);
+int config_nio_mapping_set(config_nio_state_t *state, uint8_t unit,
+                           const config_nio_mapping_t *mapping);
+int config_nio_mapping_clear(config_nio_state_t *state, uint8_t unit);
 
 #endif

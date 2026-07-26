@@ -5,14 +5,17 @@
 #include <string.h>
 
 #ifdef CONFIG_NIO_BBC_LITE
-#define CONFIG_NIO_APPSTORE_BUF_SIZE 192
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 96
+#define CONFIG_NIO_STORE_BUF_SIZE 64
 #elif defined(__CC65__)
 #define CONFIG_NIO_APPSTORE_BUF_SIZE 512
+#define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_TEXT_MAX + 1)
 #else
 #define CONFIG_NIO_APPSTORE_BUF_SIZE 1024
+#define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_TEXT_MAX + 1)
 #endif
 
-static uint8_t store_buf[CONFIG_NIO_TEXT_MAX + 1];
+static uint8_t store_buf[CONFIG_NIO_STORE_BUF_SIZE];
 static uint8_t appstore_buf[CONFIG_NIO_APPSTORE_BUF_SIZE];
 static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 static char line_buf[CONFIG_NIO_URI_MAX + 1];
@@ -88,12 +91,89 @@ static int appstore_write_text(const char *key, const char *buf)
   fn_appstore_write_t wr;
   uint16_t len;
   uint8_t result;
+#ifdef CONFIG_NIO_BBC_LITE
+#endif
 
   len = (uint16_t) strlen(buf);
+#ifdef CONFIG_NIO_BBC_LITE
+  if (len > CONFIG_NIO_APPSTORE_READ_MAX)
+    return 0;
+  result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, 0,
+                             (const uint8_t *) buf, len, &wr);
+  return result == FN_OK && wr.bytes_written == len;
+#else
   result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, 0, (const uint8_t *) buf,
                              len, &wr);
   return result == FN_OK && wr.bytes_written == len;
+#endif
 }
+
+#ifdef CONFIG_NIO_BBC_LITE
+static int appstore_write_chunk(const char *key, uint16_t *off,
+                                const char *buf, uint16_t len)
+{
+  fn_appstore_write_t wr;
+  uint8_t result;
+
+  result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, key, *off,
+                             (const uint8_t *) buf, len, &wr);
+  if (result != FN_OK || wr.bytes_written != len)
+    return 0;
+  *off = (uint16_t) (*off + len);
+  return 1;
+}
+
+static int appstore_read_hosts(config_nio_state_t *state, uint8_t *exists)
+{
+  fn_appstore_read_t rr;
+  uint16_t off;
+  uint16_t i;
+  uint16_t line_len;
+  uint8_t result;
+
+  state->host_count = 0;
+  line_len = 0;
+  off = 0;
+  if (exists)
+    *exists = 0;
+
+  for (;;) {
+    result = fn_appstore_read(&appstore_io, CONFIG_NIO_NS, CONFIG_NIO_KEY_HOSTS,
+                              off, appstore_buf, CONFIG_NIO_APPSTORE_READ_MAX,
+                              &rr);
+    if (result != FN_OK)
+      return 0;
+    if ((rr.flags & FN_APPSTORE_READ_EXISTS) == 0)
+      return 1;
+    if (exists)
+      *exists = 1;
+    for (i = 0; i < rr.bytes_read; i++) {
+      char ch;
+
+      ch = (char) appstore_buf[i];
+      if (ch == '\n' || ch == '\r') {
+        if (line_len && state->host_count < CONFIG_NIO_MAX_HOSTS) {
+          line_buf[line_len] = 0;
+          (void) config_nio_host_set(state, state->host_count, line_buf);
+          state->host_count++;
+        }
+        line_len = 0;
+      } else if (line_len < CONFIG_NIO_URI_MAX) {
+        line_buf[line_len++] = ch;
+      }
+    }
+    off = (uint16_t) (off + rr.bytes_read);
+    if ((rr.flags & FN_APPSTORE_READ_EOF) || rr.bytes_read == 0) {
+      if (line_len && state->host_count < CONFIG_NIO_MAX_HOSTS) {
+        line_buf[line_len] = 0;
+        (void) config_nio_host_set(state, state->host_count, line_buf);
+        state->host_count++;
+      }
+      return 1;
+    }
+  }
+}
+#endif
 
 static void trim_line(char *s)
 {
@@ -135,9 +215,9 @@ static int next_line(const char **src, char *out, uint16_t cap)
 static void seed_hosts(config_nio_state_t *state)
 {
   state->host_count = 3;
-  strcpy(state->hosts[0], "sd0:/");
-  strcpy(state->hosts[1], "fujinet.diller.org");
-  strcpy(state->hosts[2], "fujinet.online");
+  (void) config_nio_host_set(state, 0, "sd0:/");
+  (void) config_nio_host_set(state, 1, "fujinet.diller.org");
+  (void) config_nio_host_set(state, 2, "fujinet.online");
 }
 
 static void seed_prefs(config_nio_state_t *state)
@@ -183,6 +263,7 @@ static void seed_prefs(config_nio_state_t *state)
 #endif
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void parse_hosts(config_nio_state_t *state, const char *text)
 {
   const char *p;
@@ -196,18 +277,22 @@ static void parse_hosts(config_nio_state_t *state, const char *text)
 #ifndef CONFIG_NIO_BBC_LITE
     strncpy(host_tmp, line_buf, CONFIG_NIO_URI_MAX);
     host_tmp[CONFIG_NIO_URI_MAX] = 0;
-    strcpy(state->hosts[state->host_count], host_tmp);
+    (void) config_nio_host_set(state, state->host_count, host_tmp);
 #else
-    strcpy(state->hosts[state->host_count], line_buf);
+    (void) config_nio_host_set(state, state->host_count, line_buf);
 #endif
     state->host_count++;
   }
 }
+#endif
 
 static void parse_mappings(config_nio_state_t *state, const char *text)
 {
   const char *p;
+  uint8_t i;
 
+  for (i = 0; i < FNCTL_MAX_UNITS; i++)
+    (void) config_nio_mapping_clear(state, i);
   p = text;
   while (next_line(&p, line_buf, sizeof(line_buf))) {
     char *a;
@@ -231,10 +316,15 @@ static void parse_mappings(config_nio_state_t *state, const char *text)
     if (unit < 0 || unit >= FNCTL_MAX_UNITS || slot < 0 || slot >= FNCTL_MAX_UNITS)
       continue;
 
-    state->mappings[unit].valid = 1;
-    state->mappings[unit].slot = (uint8_t) slot;
-    state->mappings[unit].readonly =
-      (uint8_t) (strcmp(c, "ro") == 0 || strcmp(c, "RO") == 0);
+    {
+      config_nio_mapping_t mapping;
+
+      mapping.valid = 1;
+      mapping.slot = (uint8_t) slot;
+      mapping.readonly =
+        (uint8_t) (strcmp(c, "ro") == 0 || strcmp(c, "RO") == 0);
+      (void) config_nio_mapping_set(state, (uint8_t) unit, &mapping);
+    }
   }
 }
 
@@ -292,20 +382,39 @@ int config_nio_save_hosts(const config_nio_state_t *state)
   uint8_t i;
   uint16_t off;
 
+#ifdef CONFIG_NIO_BBC_LITE
+  off = 0;
+  for (i = 0; i < state->host_count; i++) {
+    uint16_t len;
+
+    if (!config_nio_host_get(state, i, line_buf, sizeof(line_buf)))
+      continue;
+    len = (uint16_t) strlen(line_buf);
+    line_buf[len++] = '\n';
+    line_buf[len] = 0;
+    if (!appstore_write_chunk(CONFIG_NIO_KEY_HOSTS, &off, line_buf, len))
+      return 0;
+  }
+  return 1;
+#else
   off = 0;
   store_buf[0] = 0;
   for (i = 0; i < state->host_count; i++) {
     uint16_t len;
+    char host[CONFIG_NIO_URI_MAX + 1];
 
-    len = (uint16_t) strlen(state->hosts[i]);
+    if (!config_nio_host_get(state, i, host, sizeof(host)))
+      continue;
+    len = (uint16_t) strlen(host);
     if ((uint16_t) (off + len + 1) >= sizeof(store_buf))
       return 0;
-    memcpy(&store_buf[off], state->hosts[i], len);
+    memcpy(&store_buf[off], host, len);
     off = (uint16_t) (off + len);
     store_buf[off++] = '\n';
     store_buf[off] = 0;
   }
   return appstore_write_text(CONFIG_NIO_KEY_HOSTS, (const char *) store_buf);
+#endif
 }
 
 int config_nio_save_mappings(const config_nio_state_t *state)
@@ -316,16 +425,18 @@ int config_nio_save_mappings(const config_nio_state_t *state)
   off = 0;
   store_buf[0] = 0;
   for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {
-    if (!state->mappings[unit].valid)
+    config_nio_mapping_t mapping;
+
+    if (!config_nio_mapping_get(state, unit, &mapping) || !mapping.valid)
       continue;
     if ((uint16_t) (off + 8) >= sizeof(store_buf))
       return 0;
     append_digit((char *) store_buf, &off, unit);
     store_buf[off++] = '\t';
-    append_digit((char *) store_buf, &off, state->mappings[unit].slot);
+    append_digit((char *) store_buf, &off, mapping.slot);
     store_buf[off++] = '\t';
-    store_buf[off++] = state->mappings[unit].readonly ? 'r' : 'r';
-    store_buf[off++] = state->mappings[unit].readonly ? 'o' : 'w';
+    store_buf[off++] = mapping.readonly ? 'r' : 'r';
+    store_buf[off++] = mapping.readonly ? 'o' : 'w';
     store_buf[off++] = '\n';
     store_buf[off] = 0;
   }
@@ -379,11 +490,16 @@ int config_nio_load(config_nio_state_t *state)
 
   memset(state, 0, sizeof(*state));
   seed_prefs(state);
+#ifdef CONFIG_NIO_BBC_LITE
+  if (!appstore_read_hosts(state, &exists))
+    return 0;
+#else
   if (!appstore_read_text(CONFIG_NIO_KEY_HOSTS, (char *) store_buf,
                           sizeof(store_buf), &exists))
     return 0;
   if (exists)
     parse_hosts(state, (const char *) store_buf);
+#endif
   if (state->host_count == 0) {
     seed_hosts(state);
     (void) config_nio_save_hosts(state);

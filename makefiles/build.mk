@@ -57,6 +57,7 @@ $(error Unknown compiler family '$(COMPILER_FAMILY)' for TARGET=$(TARGET))
 endif
 
 CONFIG_NIO_SRCS_COMMON := \
+	$(SRC_DIR)/common/config_nio_tables.c \
 	$(SRC_DIR)/common/config_nio_state.c \
 	$(SRC_DIR)/common/config_nio_store.c \
 	$(SRC_DIR)/common/config_nio_browse.c \
@@ -66,13 +67,16 @@ CONFIG_NIO_SRCS_COMMON := \
 CONFIG_NIO_SRCS_bbc := \
 	$(SRC_DIR)/common/fnsvc_config_nio_bbc.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/fnctl.c \
+	$(SRC_DIR)/common/config_nio_tables.c \
 	$(SRC_DIR)/common/config_nio_state.c \
 	$(SRC_DIR)/common/config_nio_store.c \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_xram.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
 
 CONFIG_NIO_ASM_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/bbc_read_line.s \
-	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s
+	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_xram_bank.s
 
 CONFIG_NIO_SRCS := $(if $(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_COMMON))
 CONFIG_NIO_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CONFIG_NIO_SRCS))
