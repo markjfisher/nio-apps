@@ -129,26 +129,16 @@ static void put_uint(unsigned value)
 }
 #endif
 
-static void drive_label(uint8_t unit, char *buf)
-{
-  buf[0] = 'D';
-  buf[1] = 'r';
-  buf[2] = 'i';
-  buf[3] = 'v';
-  buf[4] = 'e';
-  buf[5] = (char) ('0' + unit);
-  buf[6] = 0;
-}
-
 static void header(const char *screen)
 {
-  clear_line(0);
+  uint8_t i;
+
   text_at(0, 0, "CONFNIO ");
   cputs(screen);
-  clear_line(1);
   text_at(0, 1, "H Hosts  S Slots  X Mount  Q Quit");
-  clear_line(2);
-  text_at(0, 2, "----------------------------------------");
+  gotoxy(0, 2);
+  for (i = 0; i < BBC_WIDTH; i++)
+    cputc('-');
 }
 
 static void status_line(const char *s)
@@ -379,7 +369,6 @@ static void set_browse_marker(uint8_t row, uint8_t selected)
 static void draw_slots(config_nio_state_t *state)
 {
   uint8_t i;
-  char label[8];
   config_nio_mapping_t mapping;
   config_nio_slot_t slot;
 
@@ -390,8 +379,9 @@ static void draw_slots(config_nio_state_t *state)
   for (i = 0; i < BBC_DRIVE_COUNT; i++) {
     gotoxy(0, (uint8_t) (5 + i));
     cputc((!slots_focus && i == selected_drive) ? '>' : ' ');
-    drive_label(i, label);
-    put_fixed(label, 7);
+    cputs("Drive");
+    cputc((char) ('0' + i));
+    cputc(' ');
     if (config_nio_mapping_get(state, i, &mapping) && mapping.valid) {
       cputs("S");
       cputc((char) ('0' + mapping.slot));
