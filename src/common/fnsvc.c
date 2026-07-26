@@ -25,7 +25,8 @@ enum {
 
 enum {
   NIO_FILE_VERSION = 1,
-  NIO_FILE_LIST_DIRECTORY = 0x02
+  NIO_FILE_LIST_DIRECTORY = 0x02,
+  NIO_FILE_RESOLVE_PATH = 0x05
 };
 
 #ifndef FNSVC_IO_BUF_SIZE
@@ -193,6 +194,86 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
       return fail(FNSVC_ERR_SHORT_RESPONSE);
   }
 
+  return 1;
+}
+
+int fnsvc_resolve_path(const char *base_uri, const char *arg,
+                       char *resolved_uri, uint16_t resolved_cap,
+                       char *display_path, uint16_t display_cap,
+                       uint8_t *flags_out)
+{
+  uint16_t base_len;
+  uint16_t arg_len;
+  uint8_t status;
+  uint16_t resp_len;
+  uint16_t off;
+  uint16_t len;
+  uint8_t flags;
+
+  if (!base_uri || !resolved_uri || resolved_cap == 0)
+    return fail(FNSVC_ERR_INVALID_ARG);
+  if (!arg)
+    arg = "";
+
+  base_len = (uint16_t) strlen(base_uri);
+  arg_len = (uint16_t) strlen(arg);
+  if ((uint16_t) (1 + 2 + base_len + 2 + arg_len) > sizeof(req_buf))
+    return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
+
+  last_error = FNSVC_ERR_NONE;
+  last_status = 0;
+  last_raw_error = 0;
+  last_response_len = 0;
+
+  off = 0;
+  req_buf[off++] = NIO_FILE_VERSION;
+  put_u16le(&req_buf[off], base_len);
+  off += 2;
+  memcpy(&req_buf[off], base_uri, base_len);
+  off += base_len;
+  put_u16le(&req_buf[off], arg_len);
+  off += 2;
+  if (arg_len) {
+    memcpy(&req_buf[off], arg, arg_len);
+    off += arg_len;
+  }
+
+  if (!service_call(NIO_DEVICEID_FILE, NIO_FILE_RESOLVE_PATH,
+                    req_buf, off, resp_buf, sizeof(resp_buf), &status, &resp_len))
+    return fail(FNSVC_ERR_TRANSPORT);
+
+  last_status = status;
+  last_response_len = resp_len;
+  if (status != FNSVC_STATUS_OK)
+    return fail(FNSVC_ERR_STATUS);
+  if (resp_len < 8 || resp_buf[0] != NIO_FILE_VERSION)
+    return fail(FNSVC_ERR_BAD_VERSION);
+
+  flags = resp_buf[1];
+  off = 4;
+  len = get_u16le(&resp_buf[off]);
+  off += 2;
+  if ((uint16_t) (off + len + 2) > resp_len)
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
+  if (len >= resolved_cap)
+    len = (uint16_t) (resolved_cap - 1);
+  memcpy(resolved_uri, &resp_buf[off], len);
+  resolved_uri[len] = 0;
+  off += get_u16le(&resp_buf[4]);
+
+  len = get_u16le(&resp_buf[off]);
+  off += 2;
+  if ((uint16_t) (off + len) > resp_len)
+    return fail(FNSVC_ERR_SHORT_RESPONSE);
+  if (display_path && display_cap > 0) {
+    uint16_t copy_len = len;
+    if (copy_len >= display_cap)
+      copy_len = (uint16_t) (display_cap - 1);
+    memcpy(display_path, &resp_buf[off], copy_len);
+    display_path[copy_len] = 0;
+  }
+  if (flags_out)
+    *flags_out = flags;
   return 1;
 }
 

@@ -13,3 +13,5 @@ __pycache__/
 # various
 *.egg-info/
 *.egg
+
+/plan-local/

@@ -1,8 +1,67 @@
 #include "config_nio.h"
 
+#ifdef CONFIG_NIO_BBC_LITE
+#include <bbc.h>
+void __fastcall__ bbc_oscli(const char *cmd);
+#endif
 #include <string.h>
 
 static fnsvc_mount_t mount_tmp;
+
+#ifdef CONFIG_NIO_BBC_LITE
+static void copy_slot_display_uri(char *dst, uint16_t cap, const char *src)
+{
+  const char *shown;
+  uint16_t n;
+
+  if (!dst || cap == 0)
+    return;
+  dst[0] = 0;
+  if (!src || !*src)
+    return;
+
+  shown = strstr(src, "://");
+  if (shown) {
+    shown += 3;
+    while (*shown && *shown != '/')
+      shown++;
+  } else {
+    shown = src;
+  }
+  if (!*shown)
+    shown = src;
+  n = (uint16_t) strlen(shown);
+  if (n >= cap) {
+    shown += (n - (cap - 1));
+    n = (uint16_t) (cap - 1);
+  }
+  memcpy(dst, shown, n);
+  dst[n] = 0;
+}
+#endif
+
+#ifdef CONFIG_NIO_BBC_LITE
+static char mount_cmd[16];
+
+static int bbc_apply_drive_mapping(uint8_t unit, uint8_t slot)
+{
+  mount_cmd[0] = 'F';
+  mount_cmd[1] = 'M';
+  mount_cmd[2] = 'O';
+  mount_cmd[3] = 'U';
+  mount_cmd[4] = 'N';
+  mount_cmd[5] = 'T';
+  mount_cmd[6] = ' ';
+  mount_cmd[7] = (char) ('0' + slot);
+  mount_cmd[8] = ' ';
+  mount_cmd[9] = (char) ('0' + unit);
+  mount_cmd[10] = 13;
+  mount_cmd[11] = 0;
+  bbc_oscli(mount_cmd);
+  return 1;
+}
+#endif
+
 static int has_scheme_or_prefix(const char *s)
 {
   const char *p;
@@ -58,11 +117,17 @@ int config_nio_refresh_slots(config_nio_state_t *state)
     if (fnsvc_get_mount(slot, &mount_tmp)) {
       uint16_t n;
       state->slots[slot].enabled = mount_tmp.enabled;
+#ifdef CONFIG_NIO_BBC_LITE
+      copy_slot_display_uri(state->slots[slot].uri,
+                            sizeof(state->slots[slot].uri),
+                            mount_tmp.uri);
+#else
       n = (uint16_t) strlen(mount_tmp.uri);
-      if (n > CONFIG_NIO_URI_MAX)
-        n = CONFIG_NIO_URI_MAX;
+      if (n >= sizeof(state->slots[slot].uri))
+        n = (uint16_t) (sizeof(state->slots[slot].uri) - 1);
       memcpy(state->slots[slot].uri, mount_tmp.uri, n);
       state->slots[slot].uri[n] = 0;
+#endif
       n = (uint16_t) strlen(mount_tmp.mode);
       if (n > 3)
         n = 3;
@@ -144,6 +209,12 @@ int config_nio_mount_mappings(config_nio_state_t *state)
       config_nio_set_status(state, "Mapped slot is empty");
       continue;
     }
+#ifdef CONFIG_NIO_BBC_LITE
+    if (!bbc_apply_drive_mapping(unit, mapping->slot)) {
+      config_nio_set_status(state, "Drive map failed");
+      continue;
+    }
+#else
     if (!fnsvc_disk_mount(mapping->slot, mount_tmp.uri, mapping->readonly)) {
       config_nio_set_status(state, "Mount failed");
       continue;
@@ -152,6 +223,7 @@ int config_nio_mount_mappings(config_nio_state_t *state)
       config_nio_set_status(state, "Drive map failed");
       continue;
     }
+#endif
     mounted++;
   }
 

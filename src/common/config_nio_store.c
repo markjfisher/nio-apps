@@ -5,7 +5,7 @@
 #include <string.h>
 
 #ifdef CONFIG_NIO_BBC_LITE
-#define CONFIG_NIO_APPSTORE_BUF_SIZE 320
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 192
 #elif defined(__CC65__)
 #define CONFIG_NIO_APPSTORE_BUF_SIZE 512
 #else
@@ -137,8 +137,7 @@ static void seed_hosts(config_nio_state_t *state)
   state->host_count = 3;
   strcpy(state->hosts[0], "sd0:/");
   strcpy(state->hosts[1], "fujinet.diller.org");
-  strcpy(state->hosts[2], "apps.irata.online");
-  strcpy(state->hosts[3], "fujinet.online");
+  strcpy(state->hosts[2], "fujinet.online");
 }
 
 static void seed_prefs(config_nio_state_t *state)

@@ -70,8 +70,14 @@ CONFIG_NIO_SRCS_bbc := \
 	$(SRC_DIR)/common/config_nio_store.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
 
+CONFIG_NIO_ASM_SRCS_bbc := \
+	$(SRC_DIR)/platform/$(PLATFORM)/bbc_read_line.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s
+
 CONFIG_NIO_SRCS := $(if $(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_COMMON))
 CONFIG_NIO_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CONFIG_NIO_SRCS))
+CONFIG_NIO_ASM_SRCS := $(CONFIG_NIO_ASM_SRCS_$(TARGET))
+CONFIG_NIO_ASM_OBJS := $(patsubst %.s,$(OBJ_DIR)/%.o,$(CONFIG_NIO_ASM_SRCS))
 DEPENDS += $(CONFIG_NIO_OBJS:.o=.d)
 
 ifeq ($(TARGET),msdos)
@@ -105,11 +111,15 @@ $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(call compile_c)
 
+$(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	ca65 -t $(TARGET) -I /home/markf/dev/nio/fujinet-nio-workspace/repos/cc65/libsrc/bbc -o $@ $<
+
 $(BIN_DIR)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
 	$(call link_program)
 
 define COMMON_PROGRAM_RULE
-$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),config-nio),$$(CONFIG_NIO_OBJS) $$(CONFIG_NIO_DEPS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
+$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),config-nio),$$(CONFIG_NIO_OBJS) $$(CONFIG_NIO_ASM_OBJS) $$(CONFIG_NIO_DEPS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
 	$$(call link_program)
 endef
 

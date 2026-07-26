@@ -34,11 +34,11 @@ enum {
 };
 
 #ifndef FNSVC_LIST_MAX_PAYLOAD
-#define FNSVC_LIST_MAX_PAYLOAD 180
+#define FNSVC_LIST_MAX_PAYLOAD 120
 #endif
 
-#define BBC_REQ_BUF_SIZE 100
-#define BBC_RESP_BUF_SIZE 192
+#define BBC_REQ_BUF_SIZE 80
+#define BBC_RESP_BUF_SIZE 136
 #define BBC_LIST_NAME_MAX CONFIG_NIO_NAME_MAX
 
 static uint8_t req_buf[BBC_REQ_BUF_SIZE];
@@ -224,7 +224,7 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
     len = (uint8_t) (sizeof(mount->uri) - 1);
   memcpy(mount->uri, &resp_buf[off], len);
   mount->uri[len] = 0;
-  off = (uint16_t) (3 + resp_buf[2]);
+  off = (uint16_t) (off + resp_buf[2]);
 
   len = resp_buf[off++];
   if (off + len > resp_len)
@@ -250,7 +250,7 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
     mode = "";
   if (slot >= FNCTL_MAX_UNITS)
     return 0;
-  if (strlen(uri) > CONFIG_NIO_URI_MAX || strlen(mode) > 3)
+  if (strlen(uri) > FNSVC_MOUNT_URI_MAX || strlen(mode) > 3)
     return 0;
 
   uri_len = (uint8_t) strlen(uri);

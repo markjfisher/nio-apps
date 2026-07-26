@@ -13,7 +13,7 @@
 
 static uint16_t last_dos_error;
 #ifdef CONFIG_NIO_BBC_LITE
-#define FNCTL_APPSTORE_BUF_SIZE 64
+#define FNCTL_APPSTORE_BUF_SIZE 40
 #else
 #define FNCTL_APPSTORE_BUF_SIZE 320
 #endif
