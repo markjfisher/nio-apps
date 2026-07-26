@@ -88,6 +88,7 @@ static int append_text(char *out, uint16_t cap, uint16_t *pos, const char *s)
   return 1;
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 int config_nio_set_status(config_nio_state_t *state, const char *msg)
 {
   uint16_t i;
@@ -103,6 +104,7 @@ int config_nio_set_status(config_nio_state_t *state, const char *msg)
   state->status[i] = 0;
   return 1;
 }
+#endif
 
 int config_nio_refresh_slots(config_nio_state_t *state)
 {

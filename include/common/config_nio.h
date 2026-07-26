@@ -122,7 +122,11 @@ int config_nio_save_hosts(const config_nio_state_t *state);
 int config_nio_save_mappings(const config_nio_state_t *state);
 int config_nio_save_prefs(const config_nio_state_t *state);
 int config_nio_refresh_slots(config_nio_state_t *state);
+#ifdef CONFIG_NIO_BBC_LITE
+#define config_nio_set_status(state, msg) do { (void) (state); } while (0)
+#else
 int config_nio_set_status(config_nio_state_t *state, const char *msg);
+#endif
 int config_nio_browse(config_nio_state_t *state, uint8_t host);
 int config_nio_compose_uri(const char *host, const char *path,
                            const char *leaf, char *out, uint16_t cap);
@@ -148,6 +152,39 @@ uint8_t config_nio_ui_screen_height(void);
 void config_nio_ui_drive_label(uint8_t unit, char *buf, uint8_t cap);
 int config_nio_ui_show_mappings(config_nio_state_t *state);
 
+#if defined(CONFIG_NIO_BBC_LITE) && !defined(CONFIG_NIO_TABLES_IMPL)
+int config_nio_bbc_host_get(uint8_t index, char *buf, uint16_t cap);
+int config_nio_bbc_host_set(uint8_t index, const char *value);
+int config_nio_bbc_host_clear(uint8_t index);
+int config_nio_bbc_entry_get(uint8_t index, config_nio_entry_t *entry);
+int config_nio_bbc_entry_set(uint8_t index, const config_nio_entry_t *entry);
+int config_nio_bbc_slot_get(uint8_t index, config_nio_slot_t *slot);
+int config_nio_bbc_slot_set(uint8_t index, const config_nio_slot_t *slot);
+int config_nio_bbc_mapping_get(uint8_t unit, config_nio_mapping_t *mapping);
+int config_nio_bbc_mapping_set(uint8_t unit, const config_nio_mapping_t *mapping);
+int config_nio_bbc_mapping_clear(uint8_t unit);
+
+#define config_nio_host_get(state, index, buf, cap) \
+  config_nio_bbc_host_get((index), (buf), (cap))
+#define config_nio_host_set(state, index, value) \
+  config_nio_bbc_host_set((index), (value))
+#define config_nio_host_clear(state, index) \
+  config_nio_bbc_host_clear((index))
+#define config_nio_entry_get(state, index, entry) \
+  config_nio_bbc_entry_get((index), (entry))
+#define config_nio_entry_set(state, index, entry) \
+  config_nio_bbc_entry_set((index), (entry))
+#define config_nio_slot_get(state, index, slot) \
+  config_nio_bbc_slot_get((index), (slot))
+#define config_nio_slot_set(state, index, slot) \
+  config_nio_bbc_slot_set((index), (slot))
+#define config_nio_mapping_get(state, unit, mapping) \
+  config_nio_bbc_mapping_get((unit), (mapping))
+#define config_nio_mapping_set(state, unit, mapping) \
+  config_nio_bbc_mapping_set((unit), (mapping))
+#define config_nio_mapping_clear(state, unit) \
+  config_nio_bbc_mapping_clear((unit))
+#else
 int config_nio_host_get(const config_nio_state_t *state, uint8_t index,
                         char *buf, uint16_t cap);
 int config_nio_host_set(config_nio_state_t *state, uint8_t index,
@@ -166,5 +203,6 @@ int config_nio_mapping_get(const config_nio_state_t *state, uint8_t unit,
 int config_nio_mapping_set(config_nio_state_t *state, uint8_t unit,
                            const config_nio_mapping_t *mapping);
 int config_nio_mapping_clear(config_nio_state_t *state, uint8_t unit);
+#endif
 
 #endif

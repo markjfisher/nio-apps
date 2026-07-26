@@ -175,6 +175,7 @@ static int appstore_read_hosts(config_nio_state_t *state, uint8_t *exists)
 }
 #endif
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void trim_line(char *s)
 {
   char *p;
@@ -211,6 +212,7 @@ static int next_line(const char **src, char *out, uint16_t cap)
   trim_line(out);
   return 1;
 }
+#endif
 
 static void seed_hosts(config_nio_state_t *state)
 {
@@ -286,6 +288,51 @@ static void parse_hosts(config_nio_state_t *state, const char *text)
 }
 #endif
 
+#ifdef CONFIG_NIO_BBC_LITE
+static void parse_mappings(config_nio_state_t *state, const char *text)
+{
+  const char *p;
+  uint8_t i;
+
+  (void) state;
+  for (i = 0; i < FNCTL_MAX_UNITS; i++)
+    (void) config_nio_mapping_clear(state, i);
+
+  p = text;
+  while (p && *p) {
+    uint8_t unit;
+    uint8_t slot;
+    uint8_t readonly;
+
+    if (*p < '0' || *p > '7')
+      goto skip_line;
+    unit = (uint8_t) (*p++ - '0');
+    if (*p++ != '\t')
+      goto skip_line;
+    if (*p < '0' || *p > '7')
+      goto skip_line;
+    slot = (uint8_t) (*p++ - '0');
+    if (*p++ != '\t')
+      goto skip_line;
+
+    readonly = (uint8_t) (p[0] == 'r' && p[1] == 'o');
+    if (unit < FNCTL_MAX_UNITS && slot < FNCTL_MAX_UNITS) {
+      config_nio_mapping_t mapping;
+
+      mapping.valid = 1;
+      mapping.slot = slot;
+      mapping.readonly = readonly;
+      (void) config_nio_mapping_set(state, unit, &mapping);
+    }
+
+skip_line:
+    while (*p && *p != '\n' && *p != '\r')
+      p++;
+    while (*p == '\n' || *p == '\r')
+      p++;
+  }
+}
+#else
 static void parse_mappings(config_nio_state_t *state, const char *text)
 {
   const char *p;
@@ -327,6 +374,7 @@ static void parse_mappings(config_nio_state_t *state, const char *text)
     }
   }
 }
+#endif
 
 #ifndef CONFIG_NIO_BBC_LITE
 static void parse_prefs(config_nio_state_t *state, const char *text)
@@ -422,6 +470,9 @@ int config_nio_save_mappings(const config_nio_state_t *state)
   uint8_t unit;
   uint16_t off;
 
+#ifdef CONFIG_NIO_BBC_LITE
+  (void) state;
+#endif
   off = 0;
   store_buf[0] = 0;
   for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {

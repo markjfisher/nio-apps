@@ -1,3 +1,4 @@
+#define CONFIG_NIO_TABLES_IMPL
 #include "config_nio.h"
 
 #include <string.h>
@@ -52,10 +53,8 @@ static int write_string(uint16_t offset, uint16_t record_size, const char *value
   return 1;
 }
 
-int config_nio_host_get(const config_nio_state_t *state, uint8_t index,
-                        char *buf, uint16_t cap)
+int config_nio_bbc_host_get(uint8_t index, char *buf, uint16_t cap)
 {
-  (void) state;
   if (!buf || cap == 0)
     return 0;
   buf[0] = 0;
@@ -68,86 +67,72 @@ int config_nio_host_get(const config_nio_state_t *state, uint8_t index,
   return 1;
 }
 
-int config_nio_host_set(config_nio_state_t *state, uint8_t index,
-                        const char *value)
+int config_nio_bbc_host_set(uint8_t index, const char *value)
 {
-  (void) state;
   if (index >= CONFIG_NIO_MAX_HOSTS)
     return 0;
   return write_string(host_off(index), XRAM_HOST_SIZE, value);
 }
 
-int config_nio_host_clear(config_nio_state_t *state, uint8_t index)
+int config_nio_bbc_host_clear(uint8_t index)
 {
-  return config_nio_host_set(state, index, "");
+  return config_nio_bbc_host_set(index, "");
 }
 
-int config_nio_entry_get(const config_nio_state_t *state, uint8_t index,
-                         config_nio_entry_t *entry)
+int config_nio_bbc_entry_get(uint8_t index, config_nio_entry_t *entry)
 {
-  (void) state;
   if (!entry || index >= CONFIG_NIO_MAX_ENTRIES)
     return 0;
   config_nio_xram_read(entry_off(index), entry, sizeof(*entry));
   return 1;
 }
 
-int config_nio_entry_set(config_nio_state_t *state, uint8_t index,
-                         const config_nio_entry_t *entry)
+int config_nio_bbc_entry_set(uint8_t index, const config_nio_entry_t *entry)
 {
-  (void) state;
   if (!entry || index >= CONFIG_NIO_MAX_ENTRIES)
     return 0;
   config_nio_xram_write(entry_off(index), entry, sizeof(*entry));
   return 1;
 }
 
-int config_nio_slot_get(const config_nio_state_t *state, uint8_t index,
-                        config_nio_slot_t *slot)
+int config_nio_bbc_slot_get(uint8_t index, config_nio_slot_t *slot)
 {
-  (void) state;
   if (!slot || index >= FNCTL_MAX_UNITS)
     return 0;
   config_nio_xram_read(slot_off(index), slot, sizeof(*slot));
   return 1;
 }
 
-int config_nio_slot_set(config_nio_state_t *state, uint8_t index,
-                        const config_nio_slot_t *slot)
+int config_nio_bbc_slot_set(uint8_t index, const config_nio_slot_t *slot)
 {
-  (void) state;
   if (!slot || index >= FNCTL_MAX_UNITS)
     return 0;
   config_nio_xram_write(slot_off(index), slot, sizeof(*slot));
   return 1;
 }
 
-int config_nio_mapping_get(const config_nio_state_t *state, uint8_t unit,
-                           config_nio_mapping_t *mapping)
+int config_nio_bbc_mapping_get(uint8_t unit, config_nio_mapping_t *mapping)
 {
-  (void) state;
   if (!mapping || unit >= FNCTL_MAX_UNITS)
     return 0;
   config_nio_xram_read(mapping_off(unit), mapping, sizeof(*mapping));
   return 1;
 }
 
-int config_nio_mapping_set(config_nio_state_t *state, uint8_t unit,
-                           const config_nio_mapping_t *mapping)
+int config_nio_bbc_mapping_set(uint8_t unit, const config_nio_mapping_t *mapping)
 {
-  (void) state;
   if (!mapping || unit >= FNCTL_MAX_UNITS)
     return 0;
   config_nio_xram_write(mapping_off(unit), mapping, sizeof(*mapping));
   return 1;
 }
 
-int config_nio_mapping_clear(config_nio_state_t *state, uint8_t unit)
+int config_nio_bbc_mapping_clear(uint8_t unit)
 {
   config_nio_mapping_t mapping;
 
   memset(&mapping, 0, sizeof(mapping));
-  return config_nio_mapping_set(state, unit, &mapping);
+  return config_nio_bbc_mapping_set(unit, &mapping);
 }
 #else
 int config_nio_host_get(const config_nio_state_t *state, uint8_t index,

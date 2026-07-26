@@ -17,7 +17,9 @@ enum {
   SCREEN_SLOTS
 };
 
+#ifndef CONFIG_NIO_BBC_LITE
 static char num_buf[6];
+#endif
 static char edit_buf[CONFIG_NIO_URI_MAX + 1];
 static char uri_buf[BBC_URI_WORK_MAX];
 static uint8_t current_screen;
@@ -31,10 +33,12 @@ static uint16_t browse_start;
 static uint16_t browse_next;
 static uint8_t browse_more;
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void nl(void)
 {
   cputc('\n');
 }
+#endif
 
 static void mode7(void)
 {
@@ -109,6 +113,7 @@ static void put_basename(const char *uri, uint8_t width)
   put_tail(leaf, width);
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void put_uint(unsigned value)
 {
   uint8_t i;
@@ -121,6 +126,18 @@ static void put_uint(unsigned value)
 
   while (i)
     cputc(num_buf[--i]);
+}
+#endif
+
+static void drive_label(uint8_t unit, char *buf)
+{
+  buf[0] = 'D';
+  buf[1] = 'r';
+  buf[2] = 'i';
+  buf[3] = 'v';
+  buf[4] = 'e';
+  buf[5] = (char) ('0' + unit);
+  buf[6] = 0;
 }
 
 static void header(const char *screen)
@@ -337,12 +354,16 @@ static void show_hosts(config_nio_state_t *state)
   for (i = 0; i < CONFIG_NIO_MAX_HOSTS; i++) {
     gotoxy(0, (uint8_t) (5 + i));
     cputc(i == selected_host ? '>' : ' ');
-    cputc((char) ('0' + i));
+    if (i >= 10)
+      cputc('1');
+    else
+      cputc(' ');
+    cputc((char) ('0' + (i % 10)));
     cputc(' ');
     if (i < state->host_count && config_nio_host_get(state, i, edit_buf, sizeof(edit_buf)))
-      put_tail(edit_buf, 35);
+      put_tail(edit_buf, 34);
     else
-      put_fixed("", 35);
+      put_fixed("", 34);
   }
   status_line("RET open A add E edit D del");
 }
@@ -393,13 +414,14 @@ static void draw_slots(config_nio_state_t *state)
   config_nio_mapping_t mapping;
   config_nio_slot_t slot;
 
+  (void) state;
   clrscr();
   header("Slots");
   text_at(0, 3, "Drive map");
   for (i = 0; i < BBC_DRIVE_COUNT; i++) {
     gotoxy(0, (uint8_t) (5 + i));
     cputc((!slots_focus && i == selected_drive) ? '>' : ' ');
-    config_nio_ui_drive_label(i, label, sizeof(label));
+    drive_label(i, label);
     put_fixed(label, 7);
     if (config_nio_mapping_get(state, i, &mapping) && mapping.valid) {
       cputs("S");
@@ -755,6 +777,7 @@ void config_nio_run(config_nio_state_t *state)
   clrscr();
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 int config_nio_ui_run(config_nio_state_t *state)
 {
   (void) state;
@@ -852,3 +875,4 @@ int config_nio_ui_show_mappings(config_nio_state_t *state)
   (void) state;
   return 0;
 }
+#endif
