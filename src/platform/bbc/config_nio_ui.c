@@ -10,6 +10,10 @@
 #define BBC_BROWSE_PAGE_ROWS 10
 #define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
+#define key_is_quit(key) ((key) == 'q' || (key) == 'Q' || (key) == CH_ESC)
+#define key_is_up(key) ((key) == CH_CURS_UP || (key) == 'w' || (key) == 'W')
+#define key_is_down(key) ((key) == CH_CURS_DOWN || (key) == 's')
+#define key_is_escape(key) ((key) == CH_ESC)
 
 enum {
   SCREEN_HOSTS,
@@ -33,6 +37,15 @@ static uint16_t browse_start;
 static uint16_t browse_next;
 static uint8_t browse_more;
 
+void __fastcall__ config_nio_bbc_cursor(uint8_t on);
+void __fastcall__ config_nio_bbc_clear_line(uint8_t row);
+void config_nio_bbc_put_fixed(const char *s, uint8_t width);
+void config_nio_bbc_put_tail(const char *s, uint8_t width);
+#define clear_line(row) config_nio_bbc_clear_line(row)
+#define bbc_cursor(on) config_nio_bbc_cursor(on)
+#define put_fixed(s, width) config_nio_bbc_put_fixed((s), (width))
+#define put_tail(s, width) config_nio_bbc_put_tail((s), (width))
+
 #ifndef CONFIG_NIO_BBC_LITE
 static void nl(void)
 {
@@ -50,56 +63,10 @@ static void mode7(void)
 #endif
 }
 
-static void clear_line(uint8_t row)
-{
-  uint8_t i;
-
-  gotoxy(0, row);
-  for (i = 0; i < BBC_WIDTH; i++)
-    cputc(' ');
-  gotoxy(0, row);
-}
-
-static void bbc_cursor(uint8_t on)
-{
-  uint8_t i;
-
-  cputc(23);
-  cputc(1);
-  cputc(on ? 1 : 0);
-  for (i = 0; i < 7; i++)
-    cputc(0);
-}
-
 static void text_at(uint8_t x, uint8_t y, const char *s)
 {
   gotoxy(x, y);
   cputs(s ? s : "");
-}
-
-static void put_fixed(const char *s, uint8_t width)
-{
-  uint8_t n;
-
-  n = 0;
-  while (s && *s && n < width) {
-    cputc(*s++);
-    n++;
-  }
-  while (n < width) {
-    cputc(' ');
-    n++;
-  }
-}
-
-static void put_tail(const char *s, uint8_t width)
-{
-  uint16_t len;
-
-  len = s ? (uint16_t) strlen(s) : 0;
-  if (len > width)
-    s += (len - width);
-  put_fixed(s, width);
 }
 
 static void put_basename(const char *uri, uint8_t width)
@@ -163,26 +130,6 @@ static void pause_line(const char *s)
 {
   status_line(s);
   (void) cgetc();
-}
-
-static int key_is_quit(int key)
-{
-  return key == 'q' || key == 'Q' || key == CH_ESC;
-}
-
-static int key_is_up(int key)
-{
-  return key == CH_CURS_UP || key == 'w' || key == 'W';
-}
-
-static int key_is_down(int key)
-{
-  return key == CH_CURS_DOWN || key == 's';
-}
-
-static int key_is_escape(int key)
-{
-  return key == CH_ESC;
 }
 
 static uint16_t edit_len(const char *s, uint16_t max_len)
