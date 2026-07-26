@@ -3,42 +3,12 @@
 #ifdef CONFIG_NIO_BBC_LITE
 #include <bbc.h>
 void __fastcall__ bbc_oscli(const char *cmd);
+void config_nio_bbc_copy_slot_display_uri(char *dst, uint16_t cap,
+                                          const char *src);
 #endif
 #include <string.h>
 
 static fnsvc_mount_t mount_tmp;
-
-#ifdef CONFIG_NIO_BBC_LITE
-static void copy_slot_display_uri(char *dst, uint16_t cap, const char *src)
-{
-  const char *shown;
-  uint16_t n;
-
-  if (!dst || cap == 0)
-    return;
-  dst[0] = 0;
-  if (!src || !*src)
-    return;
-
-  shown = strstr(src, "://");
-  if (shown) {
-    shown += 3;
-    while (*shown && *shown != '/')
-      shown++;
-  } else {
-    shown = src;
-  }
-  if (!*shown)
-    shown = src;
-  n = (uint16_t) strlen(shown);
-  if (n >= cap) {
-    shown += (n - (cap - 1));
-    n = (uint16_t) (cap - 1);
-  }
-  memcpy(dst, shown, n);
-  dst[n] = 0;
-}
-#endif
 
 #ifdef CONFIG_NIO_BBC_LITE
 static char mount_cmd[16];
@@ -62,6 +32,7 @@ static int bbc_apply_drive_mapping(uint8_t unit, uint8_t slot)
 }
 #endif
 
+#ifndef CONFIG_NIO_BBC_LITE
 static int has_scheme_or_prefix(const char *s)
 {
   const char *p;
@@ -88,7 +59,6 @@ static int append_text(char *out, uint16_t cap, uint16_t *pos, const char *s)
   return 1;
 }
 
-#ifndef CONFIG_NIO_BBC_LITE
 int config_nio_set_status(config_nio_state_t *state, const char *msg)
 {
   uint16_t i;
@@ -123,9 +93,9 @@ int config_nio_refresh_slots(config_nio_state_t *state)
       uint16_t n;
       slot_state.enabled = mount_tmp.enabled;
 #ifdef CONFIG_NIO_BBC_LITE
-      copy_slot_display_uri(slot_state.uri,
-                            sizeof(slot_state.uri),
-                            mount_tmp.uri);
+      config_nio_bbc_copy_slot_display_uri(slot_state.uri,
+                                           sizeof(slot_state.uri),
+                                           mount_tmp.uri);
 #else
       n = (uint16_t) strlen(mount_tmp.uri);
       if (n >= sizeof(slot_state.uri))
@@ -146,6 +116,7 @@ int config_nio_refresh_slots(config_nio_state_t *state)
   return ok;
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 int config_nio_compose_uri(const char *host, const char *path,
                            const char *leaf, char *out, uint16_t cap)
 {
@@ -191,6 +162,7 @@ int config_nio_compose_uri(const char *host, const char *path,
 
   return 1;
 }
+#endif
 
 int config_nio_mount_mappings(config_nio_state_t *state)
 {
