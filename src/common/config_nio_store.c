@@ -7,6 +7,11 @@
 #ifdef CONFIG_NIO_BBC_LITE
 #define CONFIG_NIO_APPSTORE_BUF_SIZE 190
 #define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
+uint16_t __fastcall__ config_nio_bbc_build_mappings(uint8_t *buf, uint16_t cap);
+uint16_t __fastcall__ config_nio_bbc_parse_hosts(config_nio_state_t *state);
+uint16_t config_nio_bbc_parse_len;
+uint16_t config_nio_bbc_line_len;
+uint8_t config_nio_bbc_parse_finish;
 #elif defined(__CC65__)
 #define CONFIG_NIO_APPSTORE_BUF_SIZE 512
 #define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_TEXT_MAX + 1)
@@ -15,8 +20,15 @@
 #define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_TEXT_MAX + 1)
 #endif
 
+#ifdef CONFIG_NIO_BBC_LITE
+uint8_t config_nio_store_buf[CONFIG_NIO_STORE_BUF_SIZE];
+uint8_t config_nio_appstore_buf[CONFIG_NIO_APPSTORE_BUF_SIZE];
+#define store_buf config_nio_store_buf
+#define appstore_buf config_nio_appstore_buf
+#else
 static uint8_t store_buf[CONFIG_NIO_STORE_BUF_SIZE];
 static uint8_t appstore_buf[CONFIG_NIO_APPSTORE_BUF_SIZE];
+#endif
 static fn_appstore_io_t appstore_io = { appstore_buf, sizeof(appstore_buf) };
 #ifdef CONFIG_NIO_BBC_LITE
 #define line_buf ((char *) store_buf)
@@ -123,12 +135,10 @@ static int appstore_read_hosts(config_nio_state_t *state, uint8_t *exists)
 {
   fn_appstore_read_t rr;
   uint16_t off;
-  uint16_t i;
-  uint16_t line_len;
   uint8_t result;
 
   state->host_count = 0;
-  line_len = 0;
+  config_nio_bbc_line_len = 0;
   off = 0;
   if (exists)
     *exists = 0;
@@ -143,28 +153,14 @@ static int appstore_read_hosts(config_nio_state_t *state, uint8_t *exists)
       return 1;
     if (exists)
       *exists = 1;
-    for (i = 0; i < rr.bytes_read; i++) {
-      char ch;
-
-      ch = (char) appstore_buf[i];
-      if (ch == '\n' || ch == '\r') {
-        if (line_len && state->host_count < CONFIG_NIO_MAX_HOSTS) {
-          line_buf[line_len] = 0;
-          (void) config_nio_host_set(state, state->host_count, line_buf);
-          state->host_count++;
-        }
-        line_len = 0;
-      } else if (line_len < CONFIG_NIO_URI_MAX) {
-        line_buf[line_len++] = ch;
-      }
-    }
+    config_nio_bbc_parse_len = rr.bytes_read;
+    config_nio_bbc_parse_finish = 0;
+    config_nio_bbc_line_len = config_nio_bbc_parse_hosts(state);
     off = (uint16_t) (off + rr.bytes_read);
     if ((rr.flags & FN_APPSTORE_READ_EOF) || rr.bytes_read == 0) {
-      if (line_len && state->host_count < CONFIG_NIO_MAX_HOSTS) {
-        line_buf[line_len] = 0;
-        (void) config_nio_host_set(state, state->host_count, line_buf);
-        state->host_count++;
-      }
+      config_nio_bbc_parse_len = 0;
+      config_nio_bbc_parse_finish = 1;
+      config_nio_bbc_line_len = config_nio_bbc_parse_hosts(state);
       return 1;
     }
   }
@@ -489,22 +485,8 @@ int config_nio_save_mappings(const config_nio_state_t *state)
   uint8_t result;
 
   (void) state;
-  off = 0;
-  for (unit = 0; unit < FNCTL_MAX_UNITS; unit++) {
-    config_nio_mapping_t mapping;
-
-    if (!config_nio_mapping_get(state, unit, &mapping) || !mapping.valid)
-      continue;
-    if ((uint16_t) (off + 7) > sizeof(store_buf))
-      return 0;
-    store_buf[off++] = (uint8_t) ('0' + unit);
-    store_buf[off++] = '\t';
-    store_buf[off++] = (uint8_t) ('0' + mapping.slot);
-    store_buf[off++] = '\t';
-    store_buf[off++] = mapping.readonly ? 'r' : 'r';
-    store_buf[off++] = mapping.readonly ? 'o' : 'w';
-    store_buf[off++] = '\n';
-  }
+  (void) unit;
+  off = config_nio_bbc_build_mappings(store_buf, sizeof(store_buf));
   result = fn_appstore_write(&appstore_io, CONFIG_NIO_NS, CONFIG_NIO_KEY_MAPPINGS,
                              0, store_buf, off, &wr);
   return result == FN_OK && wr.bytes_written == off;

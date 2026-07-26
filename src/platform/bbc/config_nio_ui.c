@@ -41,6 +41,11 @@ void __fastcall__ config_nio_bbc_cursor(uint8_t on);
 void __fastcall__ config_nio_bbc_clear_line(uint8_t row);
 void config_nio_bbc_put_fixed(const char *s, uint8_t width);
 void config_nio_bbc_put_tail(const char *s, uint8_t width);
+extern char *config_nio_bbc_edit_buf;
+extern uint8_t config_nio_bbc_edit_cap;
+extern uint8_t config_nio_bbc_edit_x;
+extern uint8_t config_nio_bbc_edit_width;
+int config_nio_bbc_edit_line(void);
 #define clear_line(row) config_nio_bbc_clear_line(row)
 #define bbc_cursor(on) config_nio_bbc_cursor(on)
 #define put_fixed(s, width) config_nio_bbc_put_fixed((s), (width))
@@ -132,16 +137,6 @@ static void pause_line(const char *s)
   (void) cgetc();
 }
 
-static uint16_t edit_len(const char *s, uint16_t max_len)
-{
-  uint16_t len;
-
-  len = 0;
-  while (len < max_len && s[len])
-    len++;
-  return len;
-}
-
 static uint8_t label_width(const char *label)
 {
   uint8_t len;
@@ -150,40 +145,6 @@ static uint8_t label_width(const char *label)
   while (label && label[len] && len < 12)
     len++;
   return len;
-}
-
-static uint16_t edit_view_start(uint16_t cursor, uint16_t len, uint8_t width)
-{
-  uint16_t start;
-
-  if (len < width || cursor < width)
-    return 0;
-
-  start = (uint16_t) (cursor - width + 1);
-  if ((uint16_t) (len + 1) > width &&
-      (uint16_t) (start + width) > (uint16_t) (len + 1))
-    start = (uint16_t) (len + 1 - width);
-  return start;
-}
-
-static void draw_edit_field(const char *buf, uint16_t len, uint16_t edit_pos,
-                            uint8_t x, uint8_t y, uint8_t width)
-{
-  uint16_t start;
-  uint16_t index;
-  uint8_t i;
-  uint8_t cursor_x;
-
-  start = edit_view_start(edit_pos, len, width);
-  gotoxy(x, y);
-  for (i = 0; i < width; i++) {
-    index = (uint16_t) (start + i);
-    cputc(index < len ? buf[index] : ' ');
-  }
-  cursor_x = (edit_pos < start) ? 0 : (uint8_t) (edit_pos - start);
-  if (cursor_x >= width)
-    cursor_x = (uint8_t) (width - 1);
-  gotoxy((uint8_t) (x + cursor_x), y);
 }
 
 static int prompt_slot(uint8_t *slot_out)
@@ -213,14 +174,10 @@ static int prompt_slot(uint8_t *slot_out)
 
 static int prompt_line(const char *label, char *buf, uint16_t cap)
 {
-  uint16_t len;
-  uint16_t edit_pos;
-  uint16_t max_len;
   uint8_t label_len;
   uint8_t width;
   uint8_t x;
-  uint8_t old_cursor;
-  int key;
+  int result;
 
   if (!buf || cap == 0)
     return 0;
@@ -233,81 +190,17 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
   if (width == 0)
     return 0;
 
-  max_len = (uint16_t) (cap - 1);
-  len = edit_len(buf, max_len);
-  buf[len] = 0;
-  edit_pos = len;
-  old_cursor = cursor(0);
-  bbc_cursor(0);
-
   clear_line(22);
   cputs(label ? label : "Value");
   cputs(": ");
-  draw_edit_field(buf, len, edit_pos, x, 22, width);
 
-  for (;;) {
-    cursor(1);
-    bbc_cursor(1);
-    key = cgetc();
-    cursor(0);
-    bbc_cursor(0);
-    if (key_is_escape(key)) {
-      clear_line(22);
-      cursor(old_cursor);
-      bbc_cursor(old_cursor);
-      return 0;
-    }
-    if (key == CH_EOL || key == '\r' || key == '\n') {
-      clear_line(22);
-      cursor(old_cursor);
-      bbc_cursor(old_cursor);
-      return 1;
-    }
-    if (key == CH_CURS_LEFT || key == 1) {
-      if (key == 1)
-        edit_pos = 0;
-      else if (edit_pos > 0)
-        edit_pos--;
-    } else if (key == CH_CURS_RIGHT || key == 5) {
-      if (key == 5)
-        edit_pos = len;
-      else if (edit_pos < len)
-        edit_pos++;
-    } else if (key == 11) {
-      len = edit_pos;
-      buf[len] = 0;
-    } else if (key == CH_DEL) {
-      if (edit_pos > 0) {
-        uint16_t i;
-
-        edit_pos--;
-        for (i = edit_pos; i < len; i++)
-          buf[i] = buf[i + 1];
-        len--;
-      }
-    } else if (key == 4) {
-      if (edit_pos < len) {
-        uint16_t i;
-
-        for (i = edit_pos; i < len; i++)
-          buf[i] = buf[i + 1];
-        len--;
-      }
-    } else if (key >= 32 && key <= 126) {
-      if (len < max_len) {
-        uint16_t i;
-
-        for (i = len; i > edit_pos; i--)
-          buf[i] = buf[i - 1];
-        buf[edit_pos++] = (char) key;
-        len++;
-        buf[len] = 0;
-      } else if (edit_pos < len) {
-        buf[edit_pos++] = (char) key;
-      }
-    }
-    draw_edit_field(buf, len, edit_pos, x, 22, width);
-  }
+  config_nio_bbc_edit_buf = buf;
+  config_nio_bbc_edit_cap = (uint8_t) cap;
+  config_nio_bbc_edit_x = x;
+  config_nio_bbc_edit_width = width;
+  result = config_nio_bbc_edit_line();
+  clear_line(22);
+  return result;
 }
 
 static void parent_path(char *path)

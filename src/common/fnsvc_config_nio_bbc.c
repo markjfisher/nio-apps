@@ -42,13 +42,20 @@ enum {
 #define BBC_RESP_BUF_SIZE 130
 #define BBC_LIST_NAME_MAX CONFIG_NIO_NAME_MAX
 
-static uint8_t req_buf[BBC_REQ_BUF_SIZE];
-static uint8_t resp_buf[BBC_RESP_BUF_SIZE];
-static uint8_t last_error;
-static uint8_t last_status;
-static uint8_t last_raw_error;
-static uint16_t last_response_len;
+uint8_t fnsvc_bbc_req_buf[BBC_REQ_BUF_SIZE];
+uint8_t fnsvc_bbc_resp_buf[BBC_RESP_BUF_SIZE];
+uint8_t fnsvc_bbc_last_error;
+uint8_t fnsvc_bbc_last_status;
+uint8_t fnsvc_bbc_last_raw_error;
+uint16_t fnsvc_bbc_last_response_len;
 static config_nio_entry_t list_entry;
+
+#define req_buf fnsvc_bbc_req_buf
+#define resp_buf fnsvc_bbc_resp_buf
+#define last_error fnsvc_bbc_last_error
+#define last_status fnsvc_bbc_last_status
+#define last_raw_error fnsvc_bbc_last_raw_error
+#define last_response_len fnsvc_bbc_last_response_len
 
 static int fail(uint8_t error)
 {
@@ -163,6 +170,7 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
   return 1;
 }
 
+#ifndef CONFIG_NIO_BBC_LITE
 int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
 {
   uint8_t status;
@@ -215,7 +223,9 @@ int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)
   mount->mode[len] = 0;
   return 1;
 }
+#endif
 
+#ifndef CONFIG_NIO_BBC_LITE
 int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t enabled)
 {
   uint8_t status;
@@ -259,6 +269,7 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
   last_raw_error = 0;
   return status == FNSVC_STATUS_OK;
 }
+#endif
 
 uint8_t fnsvc_last_error(void)
 {

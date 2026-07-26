@@ -74,10 +74,13 @@ CONFIG_NIO_SRCS_bbc := \
 
 CONFIG_NIO_ASM_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_edit.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_screen.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_store_bbc.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_state.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_tables.s \
-	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_xram_bank.s
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_xram_bank.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/fnsvc_set_mount.s
 
 CONFIG_NIO_SRCS := $(if $(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_COMMON))
 CONFIG_NIO_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CONFIG_NIO_SRCS))
