@@ -20,6 +20,7 @@ NIO_FILE_LIST_DIRECTORY = $02
 NIO_FILE_VERSION        = $01
 NIO_FILE_LIST_FLAGS     = $03
 NIO_FILE_LIST_RESP_MORE = $01
+NIO_FILE_LIST_ENTRY_TRUNCATED = $80
 BBC_REQ_BUF_SIZE        = 170
 .ifndef FNSVC_LIST_MAX_PAYLOAD
 FNSVC_LIST_MAX_PAYLOAD  = 120
@@ -58,6 +59,8 @@ start_lo:
 start_hi:
         .res    1
 max_entries:
+        .res    1
+base_count:
         .res    1
 resp_len_lo:
         .res    1
@@ -143,18 +146,19 @@ _fnsvc_config_nio_list_directory_page:
         jmp     @bad_arg
 @args_ok:
 
-        ldy     #STATE_ENTRY_COUNT
         lda     #0
         ldx     state_ptr
         stx     ptr3
         ldx     state_ptr+1
         stx     ptr3+1
-        sta     (ptr3),y
         sta     _fnsvc_bbc_last_error
         sta     _fnsvc_bbc_last_status
         sta     _fnsvc_bbc_last_raw_error
         sta     _fnsvc_bbc_last_response_len
         sta     _fnsvc_bbc_last_response_len+1
+        ldy     #STATE_ENTRY_COUNT
+        lda     (ptr3),y
+        sta     base_count
 
         ldy     #0
 @strlen:
@@ -167,7 +171,7 @@ _fnsvc_config_nio_list_directory_page:
         jmp     fail_a
 @len_ok:
         sty     tmp1                    ; uri length
-        cpy     #164                    ; 170 - fixed 6 bytes
+        cpy     #163                    ; 170 - fixed 7 bytes
         bcc     @req_ok
         lda     #FNSVC_ERR_REQUEST_TOO_LARGE
         jmp     fail_a
@@ -209,6 +213,9 @@ _fnsvc_config_nio_list_directory_page:
         sta     _fnsvc_bbc_req_buf,y
         iny
         lda     #NIO_FILE_LIST_FLAGS
+        sta     _fnsvc_bbc_req_buf,y
+        iny
+        lda     #ENTRY_NAME_MAX
         sta     _fnsvc_bbc_req_buf,y
         iny
         sty     tmp2                    ; request length
@@ -317,6 +324,13 @@ _fnsvc_config_nio_list_directory_page:
         lda     #>_config_nio_bbc_entries
         sta     ptr2+1
 .endif
+        ldx     base_count
+        beq     @entry_base_ready
+@advance_base:
+        jsr     advance_entry_ptr
+        dex
+        bne     @advance_base
+@entry_base_ready:
         lda     #0
         sta     delivered
         sta     saw_undelivered
@@ -330,7 +344,7 @@ _fnsvc_config_nio_list_directory_page:
         bcs     @entry_bounds
         ldy     #0
         lda     (ptr1),y                ; eflags
-        and     #1
+        and     #(1 | NIO_FILE_LIST_ENTRY_TRUNCATED)
         sta     tmp3
         iny
         lda     (ptr1),y                ; name_len
@@ -384,7 +398,9 @@ _fnsvc_config_nio_list_directory_page:
 @parse_done:
         jsr     end_entries
         ldy     #STATE_ENTRY_COUNT
-        lda     delivered
+        lda     base_count
+        clc
+        adc     delivered
         ldx     state_ptr
         stx     ptr3
         ldx     state_ptr+1

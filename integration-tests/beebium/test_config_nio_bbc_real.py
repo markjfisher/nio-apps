@@ -126,3 +126,4 @@ def test_config_nio_bbc_large_directory_renders_real_fujinet(beebium_config_nio,
         label="large browse bbc",
     )
     assert "fs.ssd" in screen
+    assert "fstest.ssd" in screen

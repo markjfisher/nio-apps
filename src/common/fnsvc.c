@@ -52,6 +52,9 @@ enum {
   NIO_FILE_LIST_RESP_COMPACT = 0x02
 };
 
+#define FNSVC_LIST_REQUEST_OVERHEAD 6
+#define FNSVC_RESOLVE_PATH_REQUEST_OVERHEAD 5
+
 #ifndef FNSVC_LIST_MAX_PAYLOAD
 #define FNSVC_LIST_MAX_PAYLOAD 420
 #endif
@@ -125,7 +128,8 @@ int fnsvc_list_directory(const char *uri, fnsvc_list_cb cb, void *ctx)
     uint16_t idx;
     uint8_t flags;
 
-    if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
+    /* v1 + uriLen + startIndex + maxPayloadBytes + flags = 6 bytes. */
+    if (uri_len + FNSVC_LIST_REQUEST_OVERHEAD > sizeof(req_buf))
       return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
 
     req_buf[off++] = NIO_FILE_VERSION;
@@ -217,7 +221,8 @@ int fnsvc_resolve_path(const char *base_uri, const char *arg,
 
   base_len = (uint16_t) strlen(base_uri);
   arg_len = (uint16_t) strlen(arg);
-  if ((uint16_t) (1 + 2 + base_len + 2 + arg_len) > sizeof(req_buf))
+  /* v1 + baseLen + argLen = 5 bytes, excluding the two strings. */
+  if ((uint16_t) (base_len + arg_len + FNSVC_RESOLVE_PATH_REQUEST_OVERHEAD) > sizeof(req_buf))
     return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
 
   last_error = FNSVC_ERR_NONE;
@@ -306,7 +311,8 @@ int fnsvc_list_directory_page(const char *uri, uint16_t start,
 
   if (max_payload > (uint16_t) (sizeof(resp_buf) - 10))
     max_payload = (uint16_t) (sizeof(resp_buf) - 10);
-  if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
+  /* v1 + uriLen + startIndex + maxPayloadBytes + flags = 6 bytes. */
+  if (uri_len + FNSVC_LIST_REQUEST_OVERHEAD > sizeof(req_buf))
     return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
 
   off = 0;

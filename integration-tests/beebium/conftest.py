@@ -192,6 +192,7 @@ def real_fujinet_config_nio(pytestconfig):
         "play.ssd",
         "play_bak.ssd",
         "weather.ssd",
+        "this_is_a_very_long_file_name_that_should_scroll_over_the_window.ssd",
     ):
         if "." in name:
             (large_dir / name).write_bytes(b"")

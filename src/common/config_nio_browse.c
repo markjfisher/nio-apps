@@ -138,7 +138,7 @@ int config_nio_browse(config_nio_state_t *state, uint8_t host)
       config_nio_ui_putc(i == selected ? '>' : ' ');
       config_nio_ui_print_uint((unsigned) i);
       config_nio_ui_print(" ");
-      config_nio_ui_print(entry->is_dir ? "D " : "F ");
+      config_nio_ui_print((entry->is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) ? "D " : "F ");
       config_nio_ui_print_padded(entry->name, 24);
       config_nio_ui_print(" ");
       config_nio_ui_print_ulong((unsigned long) entry->size);
@@ -163,7 +163,9 @@ int config_nio_browse(config_nio_state_t *state, uint8_t host)
       (void) refresh_entries(state, host);
     } else if ((key == 'e' || key == 'E' || key == '\r' || key == '\n') &&
                state->entry_count > 0) {
-      if (state->entries[selected].is_dir) {
+      if (state->entries[selected].is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+        config_nio_set_status(state, "Name too long for this client");
+      } else if (state->entries[selected].is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) {
         if (enter_dir(state, state->entries[selected].name)) {
           selected = 0;
           (void) refresh_entries(state, host);
@@ -173,7 +175,11 @@ int config_nio_browse(config_nio_state_t *state, uint8_t host)
       }
     } else if ((key == 'a' || key == 'A') && state->entry_count > 0) {
       uint8_t slot;
-      if (state->entries[selected].is_dir) {
+      if (state->entries[selected].is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+        config_nio_set_status(state, "Name too long for this client");
+        continue;
+      }
+      if (state->entries[selected].is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) {
         config_nio_set_status(state, "Pick a file, not a directory");
         continue;
       }

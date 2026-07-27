@@ -244,6 +244,10 @@ static int enter_dir(config_nio_state_t *state, const char *name)
 static int fetch_browse_page(config_nio_state_t *state)
 {
   uint8_t ok;
+  uint16_t fetch_start;
+  uint16_t next_start;
+  uint8_t more;
+  uint8_t remaining;
 
   state->entry_count = 0;
   state->entries_truncated = 0;
@@ -254,15 +258,26 @@ static int fetch_browse_page(config_nio_state_t *state)
     return 0;
   }
 
-  ok = (uint8_t) fnsvc_config_nio_list_directory_page(state, uri_buf,
-                                                      browse_start,
-                                                      BBC_BROWSE_PAGE_ROWS,
-                                                      &browse_next,
-                                                      &browse_more);
-  if (!ok) {
-    config_nio_set_status(state, "Host error");
-    return 0;
-  }
+  fetch_start = browse_start;
+  browse_more = 0;
+  browse_next = browse_start;
+  do {
+    remaining = (uint8_t) (BBC_BROWSE_PAGE_ROWS - state->entry_count);
+    ok = (uint8_t) fnsvc_config_nio_list_directory_page(state, uri_buf,
+                                                        fetch_start,
+                                                        remaining,
+                                                        &next_start,
+                                                        &more);
+    if (!ok) {
+      config_nio_set_status(state, "Host error");
+      return 0;
+    }
+    browse_next = next_start;
+    browse_more = more;
+    if (!more || next_start == fetch_start)
+      break;
+    fetch_start = next_start;
+  } while (state->entry_count < BBC_BROWSE_PAGE_ROWS);
 
   selected_entry = 0;
   config_nio_set_status(state, browse_more ? "More" : "End");
@@ -381,7 +396,7 @@ static void draw_browse(config_nio_state_t *state)
     if (i < state->entry_count &&
         config_nio_entry_get(state, i, &entry)) {
       cputc(i == selected_entry ? '>' : ' ');
-      cputc(entry.is_dir ? '/' : ' ');
+      cputc((entry.is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) ? '/' : ' ');
       cputc(' ');
       put_tail(entry.name, CONFIG_NIO_BBC_BROWSE_ROWS_NAME_WIDTH);
     } else {
@@ -559,8 +574,12 @@ static void assign_selected_file(config_nio_state_t *state)
 
   if (state->entry_count == 0 ||
       !config_nio_entry_get(state, selected_entry, &entry) ||
-      entry.is_dir) {
+      (entry.is_dir & CONFIG_NIO_ENTRY_FLAG_DIR)) {
     config_nio_set_status(state, "Pick file");
+    return;
+  }
+  if (entry.is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+    config_nio_set_status(state, "Name too long");
     return;
   }
   if (!prompt_assign_slot(state, &slot)) {
@@ -681,7 +700,11 @@ static uint8_t handle_browse(config_nio_state_t *state, int key)
     config_nio_entry_t entry;
 
     if (config_nio_entry_get(state, selected_entry, &entry) &&
-        entry.is_dir) {
+        (entry.is_dir & CONFIG_NIO_ENTRY_FLAG_DIR)) {
+      if (entry.is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+        config_nio_set_status(state, "Name too long");
+        return 1;
+      }
       if (enter_dir(state, entry.name)) {
         browse_start = 0;
         reset_browse_pages();

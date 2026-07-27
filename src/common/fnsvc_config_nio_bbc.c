@@ -31,7 +31,8 @@ enum {
 enum {
   NIO_FILE_LIST_FLAG_COMPACT = 0x01,
   NIO_FILE_LIST_FLAG_SORT_BY_NAME = 0x02,
-  NIO_FILE_LIST_RESP_MORE = 0x01
+  NIO_FILE_LIST_RESP_MORE = 0x01,
+  NIO_FILE_LIST_ENTRY_TRUNCATED = 0x80
 };
 
 #ifndef FNSVC_LIST_MAX_PAYLOAD
@@ -40,6 +41,8 @@ enum {
 
 #define BBC_REQ_BUF_SIZE 170
 #define BBC_RESP_BUF_SIZE (FNSVC_LIST_MAX_PAYLOAD + 10)
+#define BBC_LIST_REQUEST_OVERHEAD 7
+#define BBC_SET_MOUNT_REQUEST_OVERHEAD 4
 #define BBC_LIST_NAME_MAX CONFIG_NIO_NAME_MAX
 
 uint8_t fnsvc_bbc_req_buf[BBC_REQ_BUF_SIZE];
@@ -98,7 +101,8 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
   if (max_payload > (uint16_t) (sizeof(resp_buf) - 10))
     max_payload = (uint16_t) (sizeof(resp_buf) - 10);
 
-  if (1 + 2 + uri_len + 2 + 2 + 1 > sizeof(req_buf))
+  /* v1 + uriLen + startIndex + maxPayloadBytes + flags + maxNameBytes = 7 bytes. */
+  if (uri_len + BBC_LIST_REQUEST_OVERHEAD > sizeof(req_buf))
     return fail(FNSVC_ERR_REQUEST_TOO_LARGE);
 
   off = 0;
@@ -112,6 +116,7 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
   req_buf[off++] = (uint8_t) max_payload;
   req_buf[off++] = (uint8_t) (max_payload >> 8);
   req_buf[off++] = NIO_FILE_LIST_FLAG_SORT_BY_NAME | NIO_FILE_LIST_FLAG_COMPACT;
+  req_buf[off++] = BBC_LIST_NAME_MAX;
 
   result = fn_bbc_device_call_raw(NIO_DEVICEID_FILE, NIO_FILE_LIST_DIRECTORY,
                                   req_buf, off, resp_buf, sizeof(resp_buf),
@@ -156,7 +161,7 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
       copy_len = name_len;
       if (copy_len > BBC_LIST_NAME_MAX)
         copy_len = BBC_LIST_NAME_MAX;
-      list_entry.is_dir = (uint8_t) (eflags & 0x01);
+      list_entry.is_dir = (uint8_t) (eflags & (0x01 | NIO_FILE_LIST_ENTRY_TRUNCATED));
       memcpy(list_entry.name, &resp_buf[pos], copy_len);
       list_entry.name[copy_len] = 0;
       (void) config_nio_entry_set(state, delivered, &list_entry);
@@ -250,7 +255,8 @@ int fnsvc_set_mount(uint8_t slot, const char *uri, const char *mode, uint8_t ena
 
   uri_len = (uint8_t) strlen(uri);
   mode_len = (uint8_t) strlen(mode);
-  if (4 + uri_len + mode_len > sizeof(req_buf))
+  /* slot + enabled + uriLen + modeLen = 4 bytes, excluding the two strings. */
+  if (uri_len + mode_len + BBC_SET_MOUNT_REQUEST_OVERHEAD > sizeof(req_buf))
     return 0;
 
   off = 0;

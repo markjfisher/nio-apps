@@ -333,7 +333,7 @@ static void dos_draw_browser_entry(config_nio_state_t *state, uint8_t index,
     dos_curses_print_tail(dos_main_win, entry->name, name_width);
   }
   waddch(dos_main_win, ' ');
-  if (entry->is_dir)
+  if (entry->is_dir & CONFIG_NIO_ENTRY_FLAG_DIR)
     sprintf(size_buf, "%13s", "<DIR>");
   else if (state->prefs.size_format == CONFIG_NIO_PREF_SIZE_COMPACT)
     dos_format_size_compact(size_buf, entry->size);
@@ -1769,7 +1769,11 @@ static void dos_assign_selected_entry(config_nio_state_t *state)
 {
   if (state->entry_count == 0 || dos_selected_entry >= state->entry_count)
     return;
-  if (state->entries[dos_selected_entry].is_dir) {
+  if (state->entries[dos_selected_entry].is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+    config_nio_set_status(state, "Name too long for this client");
+    return;
+  }
+  if (state->entries[dos_selected_entry].is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) {
     config_nio_set_status(state, "Pick a file, not a directory");
     return;
   }
@@ -1795,7 +1799,11 @@ static void dos_browser_enter(config_nio_state_t *state)
     dos_assign_selected_entry(state);
     return;
   }
-  if (state->entries[dos_selected_entry].is_dir) {
+  if (state->entries[dos_selected_entry].is_dir & CONFIG_NIO_ENTRY_FLAG_NAME_TRUNCATED) {
+    config_nio_set_status(state, "Name too long for this client");
+    return;
+  }
+  if (state->entries[dos_selected_entry].is_dir & CONFIG_NIO_ENTRY_FLAG_DIR) {
     dos_parent_cache_save(state);
     if (dos_enter_dir(state, state->entries[dos_selected_entry].name)) {
       dos_selected_entry = 0;
