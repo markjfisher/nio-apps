@@ -22,7 +22,6 @@ endef
 disk-bbc: all | $(DISK_DIR)
 	rm -rf "$(BBC_STAGE_DIR)"
 	mkdir -p "$(BBC_STAGE_DIR)"
-	python3 bbc/scripts/generate_config_nio_templates.py
 	$(foreach prog,$(PROGRAMS),cp "$(BIN_DIR)/$(prog)" "$(BBC_STAGE_DIR)/$(call BBC_DFS_NAME,$(prog))";)
 	$(foreach prog,$(PROGRAMS),printf '$$.%s 001900 001900\n' "$(call BBC_DFS_NAME,$(prog))" > "$(BBC_STAGE_DIR)/$(call BBC_DFS_NAME,$(prog)).inf";)
 	@if printf '%s\n' $(PROGRAMS) | grep -qx config-nio; then \

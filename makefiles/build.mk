@@ -92,6 +92,24 @@ CONFIG_NIO_ASM_SRCS := $(CONFIG_NIO_ASM_SRCS_$(TARGET))
 CONFIG_NIO_ASM_OBJS := $(patsubst %.s,$(OBJ_DIR)/%.o,$(CONFIG_NIO_ASM_SRCS))
 DEPENDS += $(CONFIG_NIO_OBJS:.o=.d)
 
+ifeq ($(TARGET),bbc)
+CONFIG_NIO_BBC_TEMPLATE_INPUTS := \
+	bbc/assets/config-nio-templates/CNHOSTS \
+	bbc/assets/config-nio-templates/CNBROW \
+	bbc/assets/config-nio-templates/CNSLOTS \
+	bbc/config_nio_layout.json \
+	bbc/scripts/generate_config_nio_templates.py
+CONFIG_NIO_BBC_GENERATED := \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_data.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_layout.h
+
+$(CONFIG_NIO_BBC_GENERATED): $(CONFIG_NIO_BBC_TEMPLATE_INPUTS)
+	python3 bbc/scripts/generate_config_nio_templates.py
+
+$(OBJ_DIR)/$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_data.o: $(CONFIG_NIO_BBC_GENERATED)
+$(OBJ_DIR)/$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.o: $(SRC_DIR)/platform/$(PLATFORM)/config_nio_layout.h
+endif
+
 ifeq ($(TARGET),msdos)
 PDCURSES_DIR ?= ../PDCurses
 PDCURSES_MSDOS_LIB ?= ../../build/pdcurses/msdos-small/pdcurses.lib

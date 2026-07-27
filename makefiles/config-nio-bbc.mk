@@ -15,7 +15,6 @@ define CONFIG_NIO_STAGE_PROFILE
 		config-nio keycode
 	rm -rf "$(CONFIG_NIO_BBC_STAGE_DIR)"
 	mkdir -p "$(CONFIG_NIO_BBC_STAGE_DIR)"
-	python3 bbc/scripts/generate_config_nio_templates.py
 	cp "$(BUILD_DIR)/config-nio-$(1)/bbc/bin/config-nio" "$(CONFIG_NIO_BBC_STAGE_DIR)/CONFNIO"
 	cp "$(CONFIG_NIO_BBC_ASSET_DIR)/config-nio-$(1)/CONFNIO.inf" "$(CONFIG_NIO_BBC_STAGE_DIR)/CONFNIO.inf"
 	cp "$(BUILD_DIR)/config-nio-$(1)/bbc/bin/keycode" "$(CONFIG_NIO_BBC_STAGE_DIR)/KEYCODE"
