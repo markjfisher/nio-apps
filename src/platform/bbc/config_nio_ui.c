@@ -10,6 +10,8 @@
 #define BBC_DRIVE_COUNT 4
 #define BBC_BROWSE_PAGE_ROWS CONFIG_NIO_BBC_BROWSE_ROWS_COUNT
 #define BBC_HOST_PAGE_ROWS CONFIG_NIO_BBC_HOSTS_ROWS_COUNT
+#define BBC_HOST_TEXT_X (CONFIG_NIO_BBC_HOSTS_ROWS_X + 4)
+#define BBC_HOST_ROW_WIDTH (CONFIG_NIO_BBC_HOSTS_ROWS_URI_WIDTH + 4)
 #define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
 #define BBC_EDIT_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
@@ -156,11 +158,11 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
     width = CONFIG_NIO_BBC_BROWSE_INPUT_WIDTH;
     clear_width = CONFIG_NIO_BBC_BROWSE_INPUT_CLEAR_WIDTH;
   } else {
-    x = CONFIG_NIO_BBC_HOSTS_INPUT_TEXT_X;
-    y = CONFIG_NIO_BBC_HOSTS_INPUT_Y;
-    clear_x = CONFIG_NIO_BBC_HOSTS_INPUT_LABEL_X;
-    width = CONFIG_NIO_BBC_HOSTS_INPUT_WIDTH;
-    clear_width = CONFIG_NIO_BBC_HOSTS_INPUT_CLEAR_WIDTH;
+    x = BBC_HOST_TEXT_X;
+    y = (uint8_t) (CONFIG_NIO_BBC_HOSTS_ROWS_Y + selected_host - hosts_start);
+    clear_x = x;
+    width = CONFIG_NIO_BBC_HOSTS_ROWS_URI_WIDTH;
+    clear_width = width;
   }
   if (cap <= width)
     width = (uint8_t) (cap - 1);
@@ -168,10 +170,12 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
     return 0;
 
   clear_field(clear_x, y, clear_width);
-  cputs(label ? label : "Value");
-  cputs(":");
-  if (label_len < 5)
-    put_fixed("", (uint8_t) (5 - label_len));
+  if (current_screen == SCREEN_BROWSE) {
+    cputs(label ? label : "Value");
+    cputs(":");
+    if (label_len < 5)
+      put_fixed("", (uint8_t) (5 - label_len));
+  }
   clear_field(x, y, width);
 
   config_nio_bbc_edit_buf = buf;
@@ -180,7 +184,8 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
   config_nio_bbc_edit_y = y;
   config_nio_bbc_edit_width = width;
   result = config_nio_bbc_edit_line();
-  clear_field(clear_x, y, clear_width);
+  if (current_screen == SCREEN_BROWSE)
+    clear_field(clear_x, y, clear_width);
   return result;
 }
 
@@ -253,26 +258,45 @@ static void fetch_previous_browse_page(config_nio_state_t *state)
     selected_entry = (uint8_t) (state->entry_count - 1);
 }
 
+static uint8_t last_host_page_start(void)
+{
+#if CONFIG_NIO_MAX_HOSTS <= BBC_HOST_PAGE_ROWS
+  return 0;
+#else
+  return (uint8_t) (((CONFIG_NIO_MAX_HOSTS - 1) / BBC_HOST_PAGE_ROWS) * BBC_HOST_PAGE_ROWS);
+#endif
+}
+
+static uint8_t host_page_start(uint8_t host)
+{
+  uint8_t start;
+  uint8_t last;
+
+  start = (uint8_t) ((host / BBC_HOST_PAGE_ROWS) * BBC_HOST_PAGE_ROWS);
+  last = last_host_page_start();
+  if (start > last)
+    start = last;
+  return start;
+}
+
 static void show_hosts(config_nio_state_t *state)
 {
   uint8_t i;
   uint8_t host;
 
   if (selected_host < hosts_start)
-    hosts_start = 0;
+    hosts_start = host_page_start(selected_host);
   else if (selected_host >= (uint8_t) (hosts_start + BBC_HOST_PAGE_ROWS))
-    hosts_start = BBC_HOST_PAGE_ROWS;
+    hosts_start = host_page_start(selected_host);
 
   load_screen_template("CNHOSTS");
-  gotoxy(CONFIG_NIO_BBC_HOSTS_PAGE_LABEL_X, CONFIG_NIO_BBC_HOSTS_PAGE_LABEL_Y);
-  cputc(hosts_start ? '8' : '0');
-  cputc('-');
-  cputc(hosts_start ? '1' : '7');
-  if (hosts_start)
-    cputc('5');
   for (i = 0; i < BBC_HOST_PAGE_ROWS; i++) {
     host = (uint8_t) (hosts_start + i);
     gotoxy(CONFIG_NIO_BBC_HOSTS_ROWS_X, (uint8_t) (CONFIG_NIO_BBC_HOSTS_ROWS_Y + i));
+    if (host >= CONFIG_NIO_MAX_HOSTS) {
+      put_fixed("", BBC_HOST_ROW_WIDTH);
+      continue;
+    }
     cputc(host == selected_host ? '>' : ' ');
     if (host >= 10)
       cputc('1');
@@ -285,7 +309,6 @@ static void show_hosts(config_nio_state_t *state)
     else
       put_fixed("", CONFIG_NIO_BBC_HOSTS_ROWS_URI_WIDTH);
   }
-  status_line("RET open A add E edit D del");
 }
 
 static void set_host_marker(uint8_t host, uint8_t selected)
@@ -320,7 +343,6 @@ static void draw_browse(config_nio_state_t *state)
       put_fixed("", CONFIG_NIO_BBC_BROWSE_ROWS_CLEAR_WIDTH);
     }
   }
-  status_line("Arrows move RET open A slot U up");
 }
 
 static void set_browse_marker(uint8_t row, uint8_t selected)
@@ -453,6 +475,9 @@ static void edit_host(config_nio_state_t *state)
     config_nio_set_status(state, "Host full");
     return;
   }
+  if (selected_host < hosts_start ||
+      selected_host >= (uint8_t) (hosts_start + BBC_HOST_PAGE_ROWS))
+    show_hosts(state);
   if (selected_host < state->host_count)
     (void) config_nio_host_get(state, selected_host, edit_buf, BBC_EDIT_BUF_SIZE);
   else
@@ -542,18 +567,10 @@ static uint8_t handle_hosts(config_nio_state_t *state, int key)
     if (selected_host >= BBC_HOST_PAGE_ROWS)
       selected_host = 0;
     return 1;
-  } else if (key_is_right(key) && hosts_start == 0) {
-    hosts_start = BBC_HOST_PAGE_ROWS;
+  } else if (key_is_right(key) && hosts_start < last_host_page_start()) {
+    hosts_start = last_host_page_start();
     if (selected_host < BBC_HOST_PAGE_ROWS)
-      selected_host = BBC_HOST_PAGE_ROWS;
-    return 1;
-  } else if (key == 'a' || key == 'A') {
-    if (state->host_count >= CONFIG_NIO_MAX_HOSTS) {
-        config_nio_set_status(state, "Host full");
-      return 1;
-    }
-    selected_host = state->host_count;
-    edit_host(state);
+      selected_host = hosts_start;
     return 1;
   } else if (key == 'e' || key == 'E') {
     edit_host(state);
