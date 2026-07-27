@@ -9,6 +9,7 @@
 #define BBC_DRIVE_COUNT 4
 #define BBC_BROWSE_PAGE_ROWS 10
 #define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
+#define BBC_EDIT_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
 #define key_is_quit(key) ((key) == 'q' || (key) == 'Q' || (key) == CH_ESC)
 #define key_is_up(key) ((key) == CH_CURS_UP || (key) == 'w' || (key) == 'W')
@@ -223,7 +224,7 @@ static int fetch_browse_page(config_nio_state_t *state)
 
   state->entry_count = 0;
   state->entries_truncated = 0;
-  if (!config_nio_host_get(state, browse_host, edit_buf, sizeof(edit_buf)) ||
+  if (!config_nio_host_get(state, browse_host, edit_buf, BBC_EDIT_BUF_SIZE) ||
       !config_nio_compose_uri(edit_buf, state->browse_path,
                               "", uri_buf, sizeof(uri_buf))) {
     config_nio_set_status(state, "Path long");
@@ -271,7 +272,7 @@ static void show_hosts(config_nio_state_t *state)
       cputc(' ');
     cputc((char) ('0' + (i % 10)));
     cputc(' ');
-    if (i < state->host_count && config_nio_host_get(state, i, edit_buf, sizeof(edit_buf)))
+    if (i < state->host_count && config_nio_host_get(state, i, edit_buf, BBC_EDIT_BUF_SIZE))
       put_tail(edit_buf, 34);
     else
       put_fixed("", 34);
@@ -293,7 +294,7 @@ static void draw_browse(config_nio_state_t *state)
   clrscr();
   header("Browse");
   text_at(0, 3, "Host ");
-  if (config_nio_host_get(state, browse_host, edit_buf, sizeof(edit_buf)))
+  if (config_nio_host_get(state, browse_host, edit_buf, BBC_EDIT_BUF_SIZE))
     put_tail(edit_buf, 33);
   text_at(0, 4, "Path /");
   put_tail(state->browse_path, 33);
@@ -383,10 +384,10 @@ static void edit_host(config_nio_state_t *state)
     return;
   }
   if (selected_host < state->host_count)
-    (void) config_nio_host_get(state, selected_host, edit_buf, sizeof(edit_buf));
+    (void) config_nio_host_get(state, selected_host, edit_buf, BBC_EDIT_BUF_SIZE);
   else
     edit_buf[0] = 0;
-  if (!prompt_line("Host", edit_buf, sizeof(edit_buf)) || !edit_buf[0])
+  if (!prompt_line("Host", edit_buf, BBC_EDIT_BUF_SIZE) || !edit_buf[0])
     return;
   (void) config_nio_host_set(state, selected_host, edit_buf);
   if (selected_host >= state->host_count)
@@ -402,7 +403,7 @@ static void clear_host(config_nio_state_t *state)
   if (selected_host >= state->host_count)
     return;
   for (i = selected_host; i + 1 < state->host_count; i++) {
-    if (config_nio_host_get(state, (uint8_t) (i + 1), edit_buf, sizeof(edit_buf)))
+    if (config_nio_host_get(state, (uint8_t) (i + 1), edit_buf, BBC_EDIT_BUF_SIZE))
       (void) config_nio_host_set(state, i, edit_buf);
   }
   state->host_count--;
@@ -428,7 +429,7 @@ static void assign_selected_file(config_nio_state_t *state)
     config_nio_set_status(state, "Bad slot");
     return;
   }
-  if (!config_nio_host_get(state, browse_host, edit_buf, sizeof(edit_buf)) ||
+  if (!config_nio_host_get(state, browse_host, edit_buf, BBC_EDIT_BUF_SIZE) ||
       !config_nio_compose_uri(edit_buf, state->browse_path,
                               entry.name,
                               uri_buf, sizeof(uri_buf))) {
