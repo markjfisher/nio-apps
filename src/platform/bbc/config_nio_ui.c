@@ -8,12 +8,15 @@
 #define BBC_ROWS 24
 #define BBC_DRIVE_COUNT 4
 #define BBC_BROWSE_PAGE_ROWS 10
+#define BBC_HOST_PAGE_ROWS 8
 #define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
 #define BBC_EDIT_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
 #define key_is_quit(key) ((key) == 'q' || (key) == 'Q' || (key) == CH_ESC)
 #define key_is_up(key) ((key) == CH_CURS_UP || (key) == 'w' || (key) == 'W')
 #define key_is_down(key) ((key) == CH_CURS_DOWN || (key) == 's')
+#define key_is_left(key) ((key) == CH_CURS_LEFT || (key) == 'p' || (key) == 'P')
+#define key_is_right(key) ((key) == CH_CURS_RIGHT || (key) == 'n' || (key) == 'N')
 #define key_is_escape(key) ((key) == CH_ESC)
 
 enum {
@@ -37,6 +40,7 @@ static uint8_t selected_drive;
 static uint8_t selected_slot;
 static uint8_t slots_focus;
 static uint8_t browse_host;
+static uint8_t hosts_start;
 static uint16_t browse_start;
 static uint16_t browse_next;
 static uint8_t browse_more;
@@ -51,6 +55,7 @@ extern uint8_t config_nio_bbc_edit_cap;
 extern uint8_t config_nio_bbc_edit_x;
 extern uint8_t config_nio_bbc_edit_width;
 int config_nio_bbc_edit_line(void);
+void config_nio_bbc_load_template(const char *asset_name);
 #define clear_line(row) config_nio_bbc_clear_line(row)
 #define bbc_cursor(on) config_nio_bbc_cursor(on)
 #define put_fixed(s, width) config_nio_bbc_put_fixed((s), (width))
@@ -66,6 +71,7 @@ static void nl(void)
 
 static void mode7(void)
 {
+  /* VDU 22,n selects screen mode; 128+7 selects MODE 7 in shadow RAM on Master. */
   cputc(22);
 #ifdef CONFIG_NIO_BBC_SHADOW_MODE
   cputc(135);
@@ -78,6 +84,13 @@ static void text_at(uint8_t x, uint8_t y, const char *s)
 {
   gotoxy(x, y);
   cputs(s ? s : "");
+}
+
+static void clear_field(uint8_t x, uint8_t y, uint8_t width)
+{
+  gotoxy(x, y);
+  put_fixed("", width);
+  gotoxy(x, y);
 }
 
 #ifndef CONFIG_NIO_BBC_LITE
@@ -95,18 +108,6 @@ static void put_uint(unsigned value)
     cputc(num_buf[--i]);
 }
 #endif
-
-static void header(const char *screen)
-{
-  uint8_t i;
-
-  text_at(0, 0, "CONFNIO ");
-  cputs(screen);
-  text_at(0, 1, "H Hosts  S Slots  X Mount  Q Quit");
-  gotoxy(0, 2);
-  for (i = 0; i < BBC_WIDTH; i++)
-    cputc('-');
-}
 
 static void status_line(const char *s)
 {
@@ -131,29 +132,9 @@ static uint8_t label_width(const char *label)
   return len;
 }
 
-static int prompt_slot(uint8_t *slot_out)
+static void load_screen_template(const char *asset_name)
 {
-  int key;
-
-  if (!slot_out)
-    return 0;
-
-  clear_line(22);
-  cputs("Slot 0-7: ");
-  for (;;) {
-    key = cgetc();
-    if (key_is_escape(key)) {
-      clear_line(22);
-      return 0;
-    }
-    if (key == CH_EOL || key == '\r' || key == '\n')
-      continue;
-    if (key >= '0' && key <= '7') {
-      cputc((char) key);
-      *slot_out = (uint8_t) (key - '0');
-      return 1;
-    }
-  }
+  config_nio_bbc_load_template(asset_name);
 }
 
 static int prompt_line(const char *label, char *buf, uint16_t cap)
@@ -167,23 +148,30 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
     return 0;
 
   label_len = label_width(label ? label : "Value");
-  x = (uint8_t) (label_len + 2);
-  width = (uint8_t) (BBC_WIDTH - x);
+  x = 8;
+  width = 30;
   if (cap <= width)
     width = (uint8_t) (cap - 1);
   if (width == 0)
     return 0;
 
-  clear_line(22);
+  clear_field(0, 20, BBC_WIDTH);
+  cputc(147);
+  cputc(' ');
   cputs(label ? label : "Value");
-  cputs(": ");
+  if (label_len < 5)
+    put_fixed("", (uint8_t) (5 - label_len));
+  cputc(149);
+  clear_field(x, 20, width);
+  gotoxy((uint8_t) (x + width), 20);
+  cputc(149);
 
   config_nio_bbc_edit_buf = buf;
   config_nio_bbc_edit_cap = (uint8_t) cap;
   config_nio_bbc_edit_x = x;
   config_nio_bbc_edit_width = width;
   result = config_nio_bbc_edit_line();
-  clear_line(22);
+  clear_field(0, 20, BBC_WIDTH);
   return result;
 }
 
@@ -259,30 +247,43 @@ static void fetch_previous_browse_page(config_nio_state_t *state)
 static void show_hosts(config_nio_state_t *state)
 {
   uint8_t i;
+  uint8_t host;
 
-  clrscr();
-  header("Hosts");
-  text_at(0, 3, "Hosts");
-  for (i = 0; i < CONFIG_NIO_MAX_HOSTS; i++) {
-    gotoxy(0, (uint8_t) (5 + i));
-    cputc(i == selected_host ? '>' : ' ');
-    if (i >= 10)
+  if (selected_host < hosts_start)
+    hosts_start = 0;
+  else if (selected_host >= (uint8_t) (hosts_start + BBC_HOST_PAGE_ROWS))
+    hosts_start = BBC_HOST_PAGE_ROWS;
+
+  load_screen_template("CNHOSTS");
+  gotoxy(13, 3);
+  cputc(hosts_start ? '8' : '0');
+  cputc('-');
+  cputc(hosts_start ? '1' : '7');
+  if (hosts_start)
+    cputc('5');
+  for (i = 0; i < BBC_HOST_PAGE_ROWS; i++) {
+    host = (uint8_t) (hosts_start + i);
+    gotoxy(1, (uint8_t) (6 + i));
+    cputc(host == selected_host ? '>' : ' ');
+    if (host >= 10)
       cputc('1');
     else
       cputc(' ');
-    cputc((char) ('0' + (i % 10)));
+    cputc((char) ('0' + (host % 10)));
     cputc(' ');
-    if (i < state->host_count && config_nio_host_get(state, i, edit_buf, BBC_EDIT_BUF_SIZE))
-      put_tail(edit_buf, 34);
+    if (host < state->host_count && config_nio_host_get(state, host, edit_buf, BBC_EDIT_BUF_SIZE))
+      put_tail(edit_buf, 33);
     else
-      put_fixed("", 34);
+      put_fixed("", 33);
   }
   status_line("RET open A add E edit D del");
 }
 
-static void set_host_marker(uint8_t row, uint8_t selected)
+static void set_host_marker(uint8_t host, uint8_t selected)
 {
-  gotoxy(0, (uint8_t) (5 + row));
+  if (host < hosts_start || host >= (uint8_t) (hosts_start + BBC_HOST_PAGE_ROWS))
+    return;
+  gotoxy(1, (uint8_t) (6 + host - hosts_start));
   cputc(selected ? '>' : ' ');
 }
 
@@ -291,23 +292,23 @@ static void draw_browse(config_nio_state_t *state)
   uint8_t i;
   config_nio_entry_t entry;
 
-  clrscr();
-  header("Browse");
-  text_at(0, 3, "Host ");
+  load_screen_template("CNBROW");
+  clear_field(6, 4, 33);
   if (config_nio_host_get(state, browse_host, edit_buf, BBC_EDIT_BUF_SIZE))
     put_tail(edit_buf, 33);
-  text_at(0, 4, "Path /");
+  clear_field(6, 5, 33);
+  cputc('/');
   put_tail(state->browse_path, 33);
   for (i = 0; i < BBC_BROWSE_PAGE_ROWS; i++) {
-    gotoxy(0, (uint8_t) (6 + i));
+    gotoxy(1, (uint8_t) (7 + i));
     if (i < state->entry_count &&
         config_nio_entry_get(state, i, &entry)) {
       cputc(i == selected_entry ? '>' : ' ');
       cputc(entry.is_dir ? '/' : ' ');
       cputc(' ');
-      put_tail(entry.name, 36);
+      put_tail(entry.name, 35);
     } else {
-      put_fixed("", BBC_WIDTH);
+      put_fixed("", 38);
     }
   }
   status_line("Arrows move RET open A slot U up");
@@ -315,7 +316,7 @@ static void draw_browse(config_nio_state_t *state)
 
 static void set_browse_marker(uint8_t row, uint8_t selected)
 {
-  gotoxy(0, (uint8_t) (6 + row));
+  gotoxy(1, (uint8_t) (7 + row));
   cputc(selected ? '>' : ' ');
 }
 
@@ -326,11 +327,9 @@ static void draw_slots(config_nio_state_t *state)
   config_nio_slot_t slot;
 
   (void) state;
-  clrscr();
-  header("Slots");
-  text_at(0, 3, "Drive map");
+  load_screen_template("CNSLOTS");
   for (i = 0; i < BBC_DRIVE_COUNT; i++) {
-    gotoxy(0, (uint8_t) (5 + i));
+    gotoxy(1, (uint8_t) (5 + i));
     cputc((!slots_focus && i == selected_drive) ? '>' : ' ');
     cputs("Drive");
     cputc((char) ('0' + i));
@@ -342,17 +341,16 @@ static void draw_slots(config_nio_state_t *state)
       cputc(mapping.readonly ? 'R' : 'W');
       cputc(' ');
       if (config_nio_slot_get(state, mapping.slot, &slot))
-        put_basename(slot.uri, 27);
+        put_basename(slot.uri, 26);
       else
-        put_fixed("", 27);
+        put_fixed("", 26);
     } else {
       cputs("--");
+      put_fixed("", 29);
     }
   }
-  clear_line(9);
-  text_at(0, 10, "Slots");
   for (i = 0; i < FNCTL_MAX_UNITS; i++) {
-    gotoxy(0, (uint8_t) (11 + i));
+    gotoxy(1, (uint8_t) (12 + i));
     cputc((slots_focus && i == selected_slot) ? '>' : ' ');
     cputc(' ');
     cputc((char) ('0' + i));
@@ -367,14 +365,77 @@ static void draw_slots(config_nio_state_t *state)
 
 static void set_drive_marker(uint8_t row, uint8_t selected)
 {
-  gotoxy(0, (uint8_t) (5 + row));
+  gotoxy(1, (uint8_t) (5 + row));
   cputc(selected ? '>' : ' ');
 }
 
 static void set_slot_marker(uint8_t row, uint8_t selected)
 {
-  gotoxy(0, (uint8_t) (11 + row));
+  gotoxy(1, (uint8_t) (12 + row));
   cputc(selected ? '>' : ' ');
+}
+
+static void set_assign_marker(uint8_t row, uint8_t selected)
+{
+  gotoxy(1, (uint8_t) (9 + row));
+  cputc(selected ? '>' : ' ');
+}
+
+static int prompt_assign_slot(config_nio_state_t *state, uint8_t *slot_out)
+{
+  uint8_t i;
+  uint8_t slot;
+  config_nio_slot_t slot_state;
+
+  if (!slot_out)
+    return 0;
+
+  (void) config_nio_refresh_slots(state);
+  for (i = 0; i < 11; i++)
+    clear_field(1, (uint8_t) (7 + i), 38);
+  text_at(1, 7, "Assign file to slot");
+  text_at(1, 8, "RET choose  ESC cancel");
+  slot = selected_slot;
+  for (i = 0; i < FNCTL_MAX_UNITS; i++) {
+    gotoxy(1, (uint8_t) (9 + i));
+    cputc(i == slot ? '>' : ' ');
+    cputc(' ');
+    cputc((char) ('0' + i));
+    cputc(' ');
+    if (config_nio_slot_get(state, i, &slot_state))
+      put_tail(slot_state.uri, 34);
+    else
+      put_fixed("", 34);
+  }
+  status_line("Arrows choose slot  RET assign");
+
+  for (;;) {
+    int key;
+    uint8_t old;
+
+    key = cgetc();
+    if (key_is_escape(key))
+      return 0;
+    if (key == '\r' || key == '\n') {
+      selected_slot = slot;
+      *slot_out = slot;
+      return 1;
+    }
+    if (key >= '0' && key <= '7') {
+      selected_slot = (uint8_t) (key - '0');
+      *slot_out = selected_slot;
+      return 1;
+    }
+    old = slot;
+    if (key_is_up(key) && slot > 0)
+      slot--;
+    else if (key_is_down(key) && slot + 1 < FNCTL_MAX_UNITS)
+      slot++;
+    if (old != slot) {
+      set_assign_marker(old, 0);
+      set_assign_marker(slot, 1);
+    }
+  }
 }
 
 static void edit_host(config_nio_state_t *state)
@@ -425,7 +486,7 @@ static void assign_selected_file(config_nio_state_t *state)
     config_nio_set_status(state, "Pick file");
     return;
   }
-  if (!prompt_slot(&slot)) {
+  if (!prompt_assign_slot(state, &slot)) {
     config_nio_set_status(state, "Bad slot");
     return;
   }
@@ -451,14 +512,32 @@ static uint8_t handle_hosts(config_nio_state_t *state, int key)
   old = selected_host;
   if (key_is_up(key) && selected_host > 0) {
     selected_host--;
-    set_host_marker(old, 0);
-    set_host_marker(selected_host, 1);
+    if (selected_host < hosts_start)
+      return 1;
+    else {
+      set_host_marker(old, 0);
+      set_host_marker(selected_host, 1);
+    }
     return 0;
   } else if (key_is_down(key) && selected_host + 1 < CONFIG_NIO_MAX_HOSTS) {
     selected_host++;
-    set_host_marker(old, 0);
-    set_host_marker(selected_host, 1);
+    if (selected_host >= (uint8_t) (hosts_start + BBC_HOST_PAGE_ROWS))
+      return 1;
+    else {
+      set_host_marker(old, 0);
+      set_host_marker(selected_host, 1);
+    }
     return 0;
+  } else if (key_is_left(key) && hosts_start > 0) {
+    hosts_start = 0;
+    if (selected_host >= BBC_HOST_PAGE_ROWS)
+      selected_host = 0;
+    return 1;
+  } else if (key_is_right(key) && hosts_start == 0) {
+    hosts_start = BBC_HOST_PAGE_ROWS;
+    if (selected_host < BBC_HOST_PAGE_ROWS)
+      selected_host = BBC_HOST_PAGE_ROWS;
+    return 1;
   } else if (key == 'a' || key == 'A') {
     if (state->host_count >= CONFIG_NIO_MAX_HOSTS) {
         config_nio_set_status(state, "Host full");
@@ -647,6 +726,7 @@ void config_nio_run(config_nio_state_t *state)
   mode7();
   current_screen = SCREEN_HOSTS;
   selected_host = 0;
+  hosts_start = 0;
   selected_drive = 0;
   selected_slot = 0;
   slots_focus = 0;
@@ -691,6 +771,18 @@ void config_nio_run(config_nio_state_t *state)
 }
 
 #ifndef CONFIG_NIO_BBC_LITE
+static void header(const char *screen)
+{
+  uint8_t i;
+
+  text_at(0, 0, "CONFNIO ");
+  cputs(screen);
+  text_at(0, 1, "H Hosts  S Slots  X Mount  Q Quit");
+  gotoxy(0, 2);
+  for (i = 0; i < BBC_WIDTH; i++)
+    cputc('-');
+}
+
 int config_nio_ui_run(config_nio_state_t *state)
 {
   (void) state;

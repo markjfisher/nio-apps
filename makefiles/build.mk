@@ -70,6 +70,7 @@ CONFIG_NIO_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/fnctl.c \
 	$(SRC_DIR)/common/config_nio_state.c \
 	$(SRC_DIR)/common/config_nio_store.c \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template.c \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_ui.c
 
 CONFIG_NIO_ASM_SRCS_bbc := \
@@ -100,6 +101,7 @@ endif
 DISK_TARGETS :=
 -include makefiles/disk-$(TARGET).mk
 -include makefiles/boot-disk.mk
+-include makefiles/config-nio-bbc.mk
 
 .PHONY: all clean disk boot-disk install-boot-disk $(PROGRAMS) $(MSDOS_PROGRAMS) $(DISK_TARGETS) $(BOOT_DISK_TARGETS)
 .SECONDARY: $(APP_OBJS) $(COMMON_OBJS)
@@ -135,7 +137,7 @@ endef
 $(foreach prog,$(PROGRAMS),$(eval $(call COMMON_PROGRAM_RULE,$(prog))))
 
 ifeq ($(TARGET),bbc)
-BBC_CONFIG_NIO_START_ADDRESS ?= 0x0E00
+BBC_CONFIG_NIO_START_ADDRESS ?= 0x1900
 BBC_CONFIG_NIO_HIMEM ?= 0x7C00
 $(BIN_DIR)/config-nio$(PROGRAM_EXT): CFLAGS += -DCONFIG_NIO_BBC_LITE
 ifeq ($(BBC_CONFIG_NIO_SHADOW_MODE),1)

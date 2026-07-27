@@ -25,6 +25,7 @@ BOOT_DISK_IMAGE := $(BOOT_DISK_IMAGE_$(PLATFORM))
 define stage_boot_files
 	rm -rf "$(BOOT_DISK_STAGE_DIR)"
 	mkdir -p "$(BOOT_DISK_STAGE_DIR)"
+	$(if $(filter bbc,$(PLATFORM)),python3 bbc/scripts/generate_config_nio_templates.py)
 	BOOT_DISK_BIN="$(abspath $(BIN_DIR))" python3 "$(BOOT_DISK_STAGE_MANIFEST)" --manifest "$(BOOT_DISK_MANIFEST)" --stage "$(BOOT_DISK_STAGE_DIR)" --repo-root "$(CURDIR)"
 endef
 
