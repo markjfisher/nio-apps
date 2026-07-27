@@ -5,7 +5,7 @@
 #include <string.h>
 
 #ifdef CONFIG_NIO_BBC_LITE
-#define CONFIG_NIO_APPSTORE_BUF_SIZE 190
+#define CONFIG_NIO_APPSTORE_BUF_SIZE 64
 #define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 uint16_t __fastcall__ config_nio_bbc_build_mappings(uint8_t *buf, uint16_t cap);
 uint16_t __fastcall__ config_nio_bbc_parse_hosts(config_nio_state_t *state);
@@ -129,6 +129,26 @@ static int appstore_write_chunk(const char *key, uint16_t *off,
   if (result != FN_OK || wr.bytes_written != len)
     return 0;
   *off = (uint16_t) (*off + len);
+  return 1;
+}
+
+static int appstore_write_chunks(const char *key, uint16_t *off,
+                                 const char *buf, uint16_t len)
+{
+  uint16_t pos;
+  uint16_t chunk;
+  uint16_t max_chunk;
+
+  max_chunk = CONFIG_NIO_APPSTORE_BUF_SIZE - 26;
+  pos = 0;
+  while (pos < len) {
+    chunk = (uint16_t) (len - pos);
+    if (chunk > max_chunk)
+      chunk = max_chunk;
+    if (!appstore_write_chunk(key, off, &buf[pos], chunk))
+      return 0;
+    pos = (uint16_t) (pos + chunk);
+  }
   return 1;
 }
 
@@ -413,7 +433,7 @@ int config_nio_save_hosts(const config_nio_state_t *state)
     if (len >= sizeof(store_buf))
       return 0;
     line_buf[len++] = '\n';
-    if (!appstore_write_chunk(CONFIG_NIO_KEY_HOSTS, &off, line_buf, len))
+    if (!appstore_write_chunks(CONFIG_NIO_KEY_HOSTS, &off, line_buf, len))
       return 0;
   }
   return 1;

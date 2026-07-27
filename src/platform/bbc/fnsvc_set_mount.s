@@ -3,7 +3,6 @@
 
         .import popa, popax
         .import _fn_bbc_osword78, _fn_bbc_status_to_result
-        .import _fnsvc_bbc_req_buf, _fnsvc_bbc_resp_buf
         .import _fnsvc_bbc_last_error, _fnsvc_bbc_last_status
         .import _fnsvc_bbc_last_raw_error
         .import _fnsvc_bbc_last_response_len
@@ -18,7 +17,8 @@ NIO_DEVICEID_FUJI       = $70
 NIO_FUJI_GET_MOUNT      = $FB
 NIO_FUJI_SET_MOUNT      = $FC
 FNCTL_MAX_UNITS         = 8
-FNSVC_MOUNT_URI_MAX     = 160
+FNSVC_MOUNT_URI_MAX     = 128
+FNSVC_MOUNT_MODE_OFF    = 130
 FNSVC_MOUNT_MODE_MAX    = 4
 BBC_RESP_BUF_SIZE       = 130
 
@@ -32,6 +32,10 @@ call_block:
         .res    16
 mount_ptr:
         .res    2
+_fnsvc_bbc_req_buf:
+        .res    170
+_fnsvc_bbc_resp_buf:
+        .res    BBC_RESP_BUF_SIZE
 
         .code
 
@@ -190,7 +194,7 @@ _fnsvc_get_mount:
         sta     (ptr1),y                ; enabled
         iny
         sta     (ptr1),y                ; uri[0]
-        ldy     #162
+        ldy     #FNSVC_MOUNT_MODE_OFF
         sta     (ptr1),y                ; mode[0]
 
         lda     tmp1
@@ -314,7 +318,7 @@ _fnsvc_get_mount:
         sta     ptr2+1
         lda     ptr1
         clc
-        adc     #162
+        adc     #FNSVC_MOUNT_MODE_OFF
         sta     ptr3
         lda     ptr1+1
         adc     #0

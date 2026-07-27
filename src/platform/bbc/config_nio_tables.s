@@ -26,22 +26,22 @@ XRAM_BANK       = 7
 XRAM_BASE_HI    = $80
 
 HOST_MAX        = 16
-HOST_SIZE       = $A1
+HOST_SIZE       = $81
 
 SLOT_MAX        = 8
 SLOT_BASE_LO    = $10
-SLOT_BASE_HI    = $8A
-SLOT_SIZE       = $A6
+SLOT_BASE_HI    = $88
+SLOT_SIZE       = $86
 
 MAPPING_MAX     = 8
 MAPPING_BASE_LO = $40
-MAPPING_BASE_HI = $8F
+MAPPING_BASE_HI = $8C
 MAPPING_SIZE    = 3
 
-ENTRY_MAX       = 14
+ENTRY_MAX       = 12
 ENTRY_BASE_LO   = $58
-ENTRY_BASE_HI   = $8F
-ENTRY_SIZE      = $25
+ENTRY_BASE_HI   = $8C
+ENTRY_SIZE      = $20
 
 .ifndef CONFIG_NIO_BBC_XRAM_TABLES
         .bss

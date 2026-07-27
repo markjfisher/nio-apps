@@ -21,8 +21,11 @@ NIO_FILE_VERSION        = $01
 NIO_FILE_LIST_FLAGS     = $03
 NIO_FILE_LIST_RESP_MORE = $01
 BBC_REQ_BUF_SIZE        = 170
-BBC_RESP_BUF_SIZE       = 130
-BBC_LIST_PAYLOAD        = 120
+.ifndef FNSVC_LIST_MAX_PAYLOAD
+FNSVC_LIST_MAX_PAYLOAD  = 120
+.endif
+BBC_LIST_PAYLOAD        = FNSVC_LIST_MAX_PAYLOAD
+BBC_RESP_BUF_SIZE       = BBC_LIST_PAYLOAD + 10
 FNSVC_ERR_NONE          = 0
 FNSVC_ERR_INVALID_ARG   = 1
 FNSVC_ERR_REQUEST_TOO_LARGE = 2
@@ -35,9 +38,9 @@ FNSVC_ERR_ENTRY_BOUNDS  = 8
 
 XRAM_BANK       = 7
 ENTRY_BASE_LO   = $58
-ENTRY_BASE_HI   = $8F
-ENTRY_SIZE      = $25
-ENTRY_NAME_MAX  = 35
+ENTRY_BASE_HI   = $8C
+ENTRY_SIZE      = $20
+ENTRY_NAME_MAX  = 30
 
 STATE_ENTRY_COUNT = 2
 
@@ -156,7 +159,7 @@ _fnsvc_config_nio_list_directory_page:
         lda     (ptr1),y
         beq     @len_ok
         iny
-        cpy     #161
+        cpy     #129
         bne     @strlen
         lda     #FNSVC_ERR_REQUEST_TOO_LARGE
         jmp     fail_a

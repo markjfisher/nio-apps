@@ -19,7 +19,7 @@
 
 XRAM_BANK       = 7
 HOST_MAX        = 16
-HOST_SIZE       = $A1
+HOST_SIZE       = $81
 HOST_BASE_LO    = $00
 HOST_BASE_HI    = $80
 MAPPING_MAX     = 8

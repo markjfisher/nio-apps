@@ -15,11 +15,12 @@
 #define BBC_URI_WORK_MAX (CONFIG_NIO_URI_MAX + 1)
 #define BBC_EDIT_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 #define BBC_LIST_PAYLOAD 120
+#define BBC_BROWSE_PAGE_STACK 6
 #define key_is_quit(key) ((key) == 'q' || (key) == 'Q' || (key) == CH_ESC)
 #define key_is_up(key) ((key) == CH_CURS_UP || (key) == 'w' || (key) == 'W')
 #define key_is_down(key) ((key) == CH_CURS_DOWN || (key) == 's')
-#define key_is_left(key) ((key) == CH_CURS_LEFT || (key) == 'p' || (key) == 'P')
-#define key_is_right(key) ((key) == CH_CURS_RIGHT || (key) == 'n' || (key) == 'N')
+#define key_is_left(key) ((key) == CH_CURS_LEFT)
+#define key_is_right(key) ((key) == CH_CURS_RIGHT)
 #define key_is_escape(key) ((key) == CH_ESC)
 
 enum {
@@ -46,6 +47,8 @@ static uint8_t browse_host;
 static uint8_t hosts_start;
 static uint16_t browse_start;
 static uint16_t browse_next;
+static uint16_t browse_page_stack[BBC_BROWSE_PAGE_STACK];
+static uint8_t browse_page_depth;
 static uint8_t browse_more;
 
 void __fastcall__ config_nio_bbc_cursor(uint8_t on);
@@ -108,6 +111,7 @@ static void put_uint(unsigned value)
 }
 #endif
 
+#ifndef CONFIG_NIO_BBC_LITE
 static void status_line(const char *s)
 {
   clear_line(CONFIG_NIO_BBC_SCREEN_STATUS_Y);
@@ -115,10 +119,11 @@ static void status_line(const char *s)
   put_fixed(s ? s : "", CONFIG_NIO_BBC_SCREEN_STATUS_WIDTH);
   clear_line(CONFIG_NIO_BBC_SCREEN_STATUS_CLEAR_2_Y);
 }
+#endif
 
 static void pause_line(const char *s)
 {
-  status_line(s);
+  (void) s;
   (void) cgetc();
 }
 
@@ -248,14 +253,38 @@ static int fetch_browse_page(config_nio_state_t *state)
   return 1;
 }
 
-static void fetch_previous_browse_page(config_nio_state_t *state)
+static void reset_browse_pages(void)
 {
-  if (browse_start > BBC_BROWSE_PAGE_ROWS)
-    browse_start = (uint16_t) (browse_start - BBC_BROWSE_PAGE_ROWS);
+  browse_page_depth = 0;
+}
+
+static int fetch_next_browse_page(config_nio_state_t *state)
+{
+  uint16_t old_start;
+
+  if (!browse_more)
+    return 0;
+  old_start = browse_start;
+  if (browse_page_depth < BBC_BROWSE_PAGE_STACK)
+    browse_page_stack[browse_page_depth++] = old_start;
+  browse_start = browse_next;
+  if (fetch_browse_page(state))
+    return 1;
+  browse_start = old_start;
+  if (browse_page_depth > 0)
+    browse_page_depth--;
+  return 0;
+}
+
+static int fetch_previous_browse_page(config_nio_state_t *state)
+{
+  if (browse_page_depth > 0)
+    browse_start = browse_page_stack[--browse_page_depth];
   else
     browse_start = 0;
   if (fetch_browse_page(state) && state->entry_count > 0)
     selected_entry = (uint8_t) (state->entry_count - 1);
+  return 1;
 }
 
 static uint8_t last_host_page_start(void)
@@ -391,7 +420,6 @@ static void draw_slots(config_nio_state_t *state)
     else
       put_fixed("", CONFIG_NIO_BBC_SLOTS_SLOTS_URI_WIDTH);
   }
-  status_line(slots_focus ? "Arrows slot E hosts C clr TAB rows" : "Arrows drv 0-7 slot TAB rows");
 }
 
 static void set_drive_marker(uint8_t row, uint8_t selected)
@@ -438,7 +466,6 @@ static int prompt_assign_slot(config_nio_state_t *state, uint8_t *slot_out)
     else
       put_fixed("", CONFIG_NIO_BBC_BROWSE_ASSIGN_URI_WIDTH);
   }
-  status_line("Arrows choose slot  RET assign");
 
   for (;;) {
     int key;
@@ -583,6 +610,7 @@ static uint8_t handle_hosts(config_nio_state_t *state, int key)
       browse_host = selected_host;
       state->browse_path[0] = 0;
       browse_start = 0;
+      reset_browse_pages();
       if (fetch_browse_page(state))
         current_screen = SCREEN_BROWSE;
       else
@@ -609,8 +637,7 @@ static uint8_t handle_browse(config_nio_state_t *state, int key)
       set_browse_marker(selected_entry, 1);
       return 0;
     } else if (browse_start > 0) {
-      fetch_previous_browse_page(state);
-      return 1;
+      return (uint8_t) fetch_previous_browse_page(state);
     }
   } else if (key_is_down(key)) {
     if (selected_entry + 1 < state->entry_count) {
@@ -619,20 +646,16 @@ static uint8_t handle_browse(config_nio_state_t *state, int key)
       set_browse_marker(selected_entry, 1);
       return 0;
     } else if (browse_more) {
-      browse_start = browse_next;
-      (void) fetch_browse_page(state);
-      return 1;
+      return (uint8_t) fetch_next_browse_page(state);
     }
-  } else if ((key == 'n' || key == 'N') && browse_more) {
-    browse_start = browse_next;
-    (void) fetch_browse_page(state);
-    return 1;
-  } else if ((key == 'p' || key == 'P') && browse_start > 0) {
-    fetch_previous_browse_page(state);
-    return 1;
+  } else if (key_is_right(key) && browse_more) {
+    return (uint8_t) fetch_next_browse_page(state);
+  } else if (key_is_left(key) && browse_start > 0) {
+    return (uint8_t) fetch_previous_browse_page(state);
   } else if (key == 'u' || key == 'U') {
     parent_path(state->browse_path);
     browse_start = 0;
+    reset_browse_pages();
     (void) fetch_browse_page(state);
     return 1;
   } else if (key == 'a' || key == 'A') {
@@ -645,6 +668,7 @@ static uint8_t handle_browse(config_nio_state_t *state, int key)
         entry.is_dir) {
       if (enter_dir(state, entry.name)) {
         browse_start = 0;
+        reset_browse_pages();
         (void) fetch_browse_page(state);
       }
     } else {
@@ -670,7 +694,6 @@ static uint8_t handle_slots(config_nio_state_t *state, int key)
       set_slot_marker(selected_slot, 1);
     else
       set_drive_marker(selected_drive, 1);
-    status_line(slots_focus ? "Arrows slot E hosts C clr TAB rows" : "Arrows drv 0-7 slot TAB rows");
     return 0;
   }
   if (slots_focus) {

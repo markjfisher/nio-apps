@@ -39,7 +39,7 @@ enum {
 #endif
 
 #define BBC_REQ_BUF_SIZE 170
-#define BBC_RESP_BUF_SIZE 130
+#define BBC_RESP_BUF_SIZE (FNSVC_LIST_MAX_PAYLOAD + 10)
 #define BBC_LIST_NAME_MAX CONFIG_NIO_NAME_MAX
 
 uint8_t fnsvc_bbc_req_buf[BBC_REQ_BUF_SIZE];
