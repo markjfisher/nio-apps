@@ -22,15 +22,3 @@ apps:
     name: KEYCODE
   - src: bbc/assets/KEYCODE.inf
     name: KEYCODE.inf
-  - src: bbc/assets/CNHOSTS
-    name: CNHOSTS
-  - src: bbc/assets/CNHOSTS.inf
-    name: CNHOSTS.inf
-  - src: bbc/assets/CNBROW
-    name: CNBROW
-  - src: bbc/assets/CNBROW.inf
-    name: CNBROW.inf
-  - src: bbc/assets/CNSLOTS
-    name: CNSLOTS
-  - src: bbc/assets/CNSLOTS.inf
-    name: CNSLOTS.inf

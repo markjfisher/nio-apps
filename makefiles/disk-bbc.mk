@@ -2,7 +2,6 @@ BBC_IMAGE ?= $(DISK_DIR)/nio-apps-bbc.ssd
 CREATE_SSD ?= $(FUJINET_NIO_LIB)/scripts/create_ssd.py
 BBC_STAGE_DIR ?= $(DISK_DIR)/stage
 BBC_CONFIG_NIO_ASSET_DIR ?= bbc/assets
-BBC_CONFIG_NIO_ASSETS := CNHOSTS CNHOSTS.inf CNBROW CNBROW.inf CNSLOTS CNSLOTS.inf
 
 DFS_NAME_fhost := FHOST
 DFS_NAME_fls := FLS
@@ -28,9 +27,6 @@ disk-bbc: all | $(DISK_DIR)
 	$(foreach prog,$(PROGRAMS),printf '$$.%s 001900 001900\n' "$(call BBC_DFS_NAME,$(prog))" > "$(BBC_STAGE_DIR)/$(call BBC_DFS_NAME,$(prog)).inf";)
 	@if printf '%s\n' $(PROGRAMS) | grep -qx config-nio; then \
 		cp "$(BBC_CONFIG_NIO_ASSET_DIR)/config-nio-bbc/CONFNIO.inf" "$(BBC_STAGE_DIR)/CONFNIO.inf"; \
-		for asset in $(BBC_CONFIG_NIO_ASSETS); do \
-			cp "$(BBC_CONFIG_NIO_ASSET_DIR)/$$asset" "$(BBC_STAGE_DIR)/$$asset"; \
-		done; \
 	fi
 	python3 "$(CREATE_SSD)" -i "$(BBC_STAGE_DIR)" -o "$(BBC_IMAGE)" -t NIOAPPS
 

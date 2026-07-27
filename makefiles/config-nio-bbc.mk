@@ -1,6 +1,5 @@
 CONFIG_NIO_BBC_ASSET_DIR ?= bbc/assets
 CONFIG_NIO_BBC_STAGE_DIR ?= $(DISK_DIR)/config-nio
-CONFIG_NIO_BBC_STAGE_FILES := CNHOSTS CNHOSTS.inf CNBROW CNBROW.inf CNSLOTS CNSLOTS.inf
 
 .PHONY: config-nio-bbc-stage config-nio-master-stage
 
@@ -21,7 +20,6 @@ define CONFIG_NIO_STAGE_PROFILE
 	cp "$(CONFIG_NIO_BBC_ASSET_DIR)/config-nio-$(1)/CONFNIO.inf" "$(CONFIG_NIO_BBC_STAGE_DIR)/CONFNIO.inf"
 	cp "$(BUILD_DIR)/config-nio-$(1)/bbc/bin/keycode" "$(CONFIG_NIO_BBC_STAGE_DIR)/KEYCODE"
 	cp "$(CONFIG_NIO_BBC_ASSET_DIR)/KEYCODE.inf" "$(CONFIG_NIO_BBC_STAGE_DIR)/KEYCODE.inf"
-	$(foreach file,$(CONFIG_NIO_BBC_STAGE_FILES),cp "$(CONFIG_NIO_BBC_ASSET_DIR)/$(file)" "$(CONFIG_NIO_BBC_STAGE_DIR)/$(file)";)
 endef
 
 config-nio-bbc-stage:

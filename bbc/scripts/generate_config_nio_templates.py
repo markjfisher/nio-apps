@@ -9,8 +9,8 @@ from pathlib import Path
 
 WIDTH = 40
 HEIGHT = 25
-OUT_DIR = Path(__file__).resolve().parents[1] / "assets"
 BBC_DIR = Path(__file__).resolve().parents[1]
+TEMPLATE_DIR = BBC_DIR / "assets" / "config-nio-templates"
 SRC_BBC_DIR = Path(__file__).resolve().parents[2] / "src" / "platform" / "bbc"
 DEFAULT_LAYOUT = BBC_DIR / "config_nio_layout.json"
 
@@ -22,91 +22,6 @@ def load_layout(path: Path) -> dict:
     if screen["width"] != WIDTH or screen["height"] != HEIGHT:
         raise ValueError(f"{path}: only {WIDTH}x{HEIGHT} MODE 7 layouts are supported")
     return layout
-
-
-def blank() -> list[list[int]]:
-    return [[ord(" ") for _ in range(WIDTH)] for _ in range(HEIGHT)]
-
-
-def put(screen: list[list[int]], x: int, y: int, text: str) -> None:
-    for i, ch in enumerate(text[: WIDTH - x]):
-        screen[y][x + i] = ord(ch)
-
-
-def hline(screen: list[list[int]], y: int, x: int, width: int) -> None:
-    put(screen, x, y, "+" + ("-" * (width - 2)) + "+")
-
-
-def box(screen: list[list[int]], x: int, y: int, width: int, height: int) -> None:
-    hline(screen, y, x, width)
-    for row in range(y + 1, y + height - 1):
-        screen[row][x] = ord("|")
-        screen[row][x + width - 1] = ord("|")
-    hline(screen, y + height - 1, x, width)
-
-
-def common(screen: list[list[int]], title: str, layout: dict) -> None:
-    put(screen, 0, 0, " " * WIDTH)
-    put(screen, 1, 0, "CONFNIO")
-    put(screen, 28, 0, title)
-    put(screen, 0, 1, "H Hosts   S Slots   X Mount   Q Quit")
-    hline(screen, 2, 0, WIDTH)
-    hline(screen, 21, 0, WIDTH)
-    put(screen, layout["screen"]["status"]["x"], layout["screen"]["status"]["y"], " " * layout["screen"]["status"]["width"])
-    footer = layout["screen"]["footer"]
-    put(screen, footer["x"], footer["y"], footer["text"])
-    put(screen, 0, 24, " " * WIDTH)
-
-
-def hosts(layout: dict) -> list[list[int]]:
-    screen = blank()
-    common(screen, "HOSTS", layout)
-    put(screen, 1, 3, "Hosts page 0-7")
-    box(screen, 0, 5, WIDTH, 10)
-    rows = layout["hosts"]["rows"]
-    for row in range(rows["count"]):
-        put(screen, rows["x"] + 1, rows["y"] + row, " __ _______________________________")
-    put(screen, 1, 16, "Left/Right change host page")
-    put(screen, 1, 18, "RET browse   A add   E edit   D del")
-    input_field = layout["hosts"]["input"]
-    put(screen, 0, input_field["y"], "  Host:" + (" " * 33))
-    return screen
-
-
-def browse(layout: dict) -> list[list[int]]:
-    screen = blank()
-    common(screen, "BROWSE", layout)
-    put(screen, 1, 4, "Host:")
-    put(screen, 1, 5, "Path:")
-    put(screen, 1, 19, "RET open dir/file   A assign   U up")
-    input_field = layout["browse"]["input"]
-    put(screen, 0, input_field["y"], "  Slot:" + (" " * 33))
-    return screen
-
-
-def slots(layout: dict) -> list[list[int]]:
-    screen = blank()
-    common(screen, "SLOTS", layout)
-    put(screen, 1, 3, "Drive mappings")
-    put(screen, 1, 11, "Slots")
-    return screen
-
-
-def screen_to_bytes(screen: list[list[int]]) -> bytes:
-    return bytes(cell for row in screen for cell in row)
-
-
-def bytes_to_screen(name: str, data: bytes) -> list[list[int]]:
-    if len(data) != WIDTH * HEIGHT:
-        raise ValueError(f"{name}: expected {WIDTH * HEIGHT} bytes, got {len(data)}")
-    return [list(data[row * WIDTH : (row + 1) * WIDTH]) for row in range(HEIGHT)]
-
-
-def write_asset(name: str, data: bytes) -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    if len(data) != WIDTH * HEIGHT:
-        raise ValueError(f"{name}: expected {WIDTH * HEIGHT} bytes, got {len(data)}")
-    (OUT_DIR / name).write_bytes(data)
 
 
 def find_best_seq(data: bytes, dst: int, max_offset: int = 256, max_seq_len: int = 129) -> tuple[int, int]:
@@ -208,9 +123,7 @@ def write_template_data(assets: dict[str, bytes]) -> None:
     out.write_text("\n".join(lines) + "\n")
 
 
-def read_input_or_placeholder(path: Path | None, name: str, generated: bytes) -> bytes:
-    if path is None:
-        return generated
+def read_template(path: Path, name: str) -> bytes:
     data = path.read_bytes()
     if len(data) != WIDTH * HEIGHT:
         raise ValueError(f"{path}: {name} input must be exactly {WIDTH * HEIGHT} bytes, got {len(data)}")
@@ -221,12 +134,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--layout", type=Path, default=DEFAULT_LAYOUT,
                         help="JSON layout source for dynamic overlay coordinates")
-    parser.add_argument("-t", "--hosts", type=Path,
-                        help="1000-byte MODE 7 hosts template input")
-    parser.add_argument("-b", "--browse", type=Path,
-                        help="1000-byte MODE 7 browse template input")
-    parser.add_argument("-s", "--slots", type=Path,
-                        help="1000-byte MODE 7 slots template input")
     return parser.parse_args()
 
 
@@ -234,12 +141,10 @@ def main() -> int:
     args = parse_args()
     layout = load_layout(args.layout)
     assets = {
-        "CNHOSTS": read_input_or_placeholder(args.hosts, "CNHOSTS", screen_to_bytes(hosts(layout))),
-        "CNBROW": read_input_or_placeholder(args.browse, "CNBROW", screen_to_bytes(browse(layout))),
-        "CNSLOTS": read_input_or_placeholder(args.slots, "CNSLOTS", screen_to_bytes(slots(layout))),
+        "CNHOSTS": read_template(TEMPLATE_DIR / "CNHOSTS", "CNHOSTS"),
+        "CNBROW": read_template(TEMPLATE_DIR / "CNBROW", "CNBROW"),
+        "CNSLOTS": read_template(TEMPLATE_DIR / "CNSLOTS", "CNSLOTS"),
     }
-    for name, data in assets.items():
-        write_asset(name, data)
     write_template_data(assets)
     write_layout_header(layout)
     return 0
