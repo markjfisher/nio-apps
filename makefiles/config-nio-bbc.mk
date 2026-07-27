@@ -12,6 +12,7 @@ define CONFIG_NIO_STAGE_PROFILE
 		BBC_CONFIG_NIO_START_ADDRESS="$(2)" \
 		BBC_CONFIG_NIO_HIMEM="$(3)" \
 		BBC_CONFIG_NIO_SHADOW_MODE="$(4)" \
+		BBC_CONFIG_NIO_XRAM_TABLES="$(5)" \
 		config-nio keycode
 	rm -rf "$(CONFIG_NIO_BBC_STAGE_DIR)"
 	mkdir -p "$(CONFIG_NIO_BBC_STAGE_DIR)"
@@ -24,7 +25,7 @@ define CONFIG_NIO_STAGE_PROFILE
 endef
 
 config-nio-bbc-stage:
-	$(call CONFIG_NIO_STAGE_PROFILE,bbc,0x1900,0x7C00,0)
+	$(call CONFIG_NIO_STAGE_PROFILE,bbc,0x1900,0x7C00,0,0)
 
 config-nio-master-stage:
-	$(call CONFIG_NIO_STAGE_PROFILE,master,0x0E00,0x8000,1)
+	$(call CONFIG_NIO_STAGE_PROFILE,master,0x0E00,0x8000,1,1)

@@ -8,10 +8,18 @@
         .export _config_nio_bbc_mapping_get
         .export _config_nio_bbc_mapping_set
         .export _config_nio_bbc_mapping_clear
+.ifndef CONFIG_NIO_BBC_XRAM_TABLES
+        .export _config_nio_bbc_hosts
+        .export _config_nio_bbc_slots
+        .export _config_nio_bbc_mappings
+        .export _config_nio_bbc_entries
+.endif
 
         .import popa, popax
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         .import _config_nio_xram_begin
         .import _config_nio_xram_end
+.endif
         .importzp ptr1, ptr2, tmp1, tmp2, tmp3, tmp4
 
 XRAM_BANK       = 7
@@ -35,6 +43,18 @@ ENTRY_BASE_LO   = $58
 ENTRY_BASE_HI   = $8F
 ENTRY_SIZE      = $25
 
+.ifndef CONFIG_NIO_BBC_XRAM_TABLES
+        .bss
+_config_nio_bbc_hosts:
+        .res    HOST_MAX * HOST_SIZE
+_config_nio_bbc_slots:
+        .res    SLOT_MAX * SLOT_SIZE
+_config_nio_bbc_mappings:
+        .res    MAPPING_MAX * MAPPING_SIZE
+_config_nio_bbc_entries:
+        .res    ENTRY_MAX * ENTRY_SIZE
+.endif
+
         .code
 
 return0:
@@ -48,8 +68,19 @@ return1:
         rts
 
 select_xram:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #XRAM_BANK
         jmp     _config_nio_xram_begin
+.else
+        rts
+.endif
+
+end_xram:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
+        jmp     _config_nio_xram_end
+.else
+        rts
+.endif
 
 copy_xram_to_ram:
         lda     tmp1
@@ -61,7 +92,7 @@ copy_xram_to_ram:
         iny
         cpy     tmp1
         bne     @loop
-        jmp     _config_nio_xram_end
+        jmp     end_xram
 
 copy_ram_to_xram:
         lda     tmp1
@@ -73,17 +104,24 @@ copy_ram_to_xram:
         iny
         cpy     tmp1
         bne     @loop
-        jmp     _config_nio_xram_end
+        jmp     end_xram
 
 copy_done:
         rts
 
 host_ptr:
         sta     tmp2
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #0
         sta     ptr1
         lda     #XRAM_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_hosts
+        sta     ptr1
+        lda     #>_config_nio_bbc_hosts
+        sta     ptr1+1
+.endif
         lda     tmp2
         beq     @done
 @loop:  clc
@@ -99,10 +137,17 @@ host_ptr:
 
 slot_ptr:
         sta     tmp2
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #SLOT_BASE_LO
         sta     ptr1
         lda     #SLOT_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_slots
+        sta     ptr1
+        lda     #>_config_nio_bbc_slots
+        sta     ptr1+1
+.endif
         lda     tmp2
         beq     @done
 @loop:  clc
@@ -117,10 +162,17 @@ slot_ptr:
 
 mapping_ptr:
         sta     tmp2
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #MAPPING_BASE_LO
         sta     ptr1
         lda     #MAPPING_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_mappings
+        sta     ptr1
+        lda     #>_config_nio_bbc_mappings
+        sta     ptr1+1
+.endif
         lda     tmp2
         beq     @done
 @loop:  clc
@@ -135,10 +187,17 @@ mapping_ptr:
 
 entry_ptr:
         sta     tmp2
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #ENTRY_BASE_LO
         sta     ptr1
         lda     #ENTRY_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_entries
+        sta     ptr1
+        lda     #>_config_nio_bbc_entries
+        sta     ptr1+1
+.endif
         lda     tmp2
         beq     @done
 @loop:  clc
@@ -225,7 +284,7 @@ _config_nio_bbc_host_set:
         bne     @loop
 @term:  lda     #0
         sta     (ptr1),y
-@done:  jsr     _config_nio_xram_end
+@done:  jsr     end_xram
         jmp     return1
 @bad:  jmp     return0
 
@@ -238,7 +297,7 @@ _config_nio_bbc_host_clear:
         ldy     #0
         tya
         sta     (ptr1),y
-        jsr     _config_nio_xram_end
+        jsr     end_xram
         jmp     return1
 @bad:  jmp     return0
 
@@ -367,6 +426,6 @@ _config_nio_bbc_mapping_clear:
 @loop:  sta     (ptr1),y
         dey
         bpl     @loop
-        jsr     _config_nio_xram_end
+        jsr     end_xram
         jmp     return1
 @bad:  jmp     return0

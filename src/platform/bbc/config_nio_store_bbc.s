@@ -3,8 +3,13 @@
         .export _config_nio_bbc_parse_mappings
 
         .import popax
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         .import _config_nio_xram_begin
         .import _config_nio_xram_end
+.else
+        .import _config_nio_bbc_hosts
+        .import _config_nio_bbc_mappings
+.endif
         .import _config_nio_appstore_buf
         .import _config_nio_store_buf
         .import _config_nio_bbc_parse_len
@@ -24,6 +29,21 @@ MAPPING_SIZE    = 3
 
         .code
 
+begin_tables:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
+        lda     #XRAM_BANK
+        jmp     _config_nio_xram_begin
+.else
+        rts
+.endif
+
+end_tables:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
+        jmp     _config_nio_xram_end
+.else
+        rts
+.endif
+
 ; uint16_t config_nio_bbc_build_mappings(uint8_t *buf, uint16_t cap)
 _config_nio_bbc_build_mappings:
         sta     tmp1                    ; cap low, enough for current BBC buf
@@ -37,16 +57,22 @@ _config_nio_bbc_build_mappings:
         cmp     #7
         bcc     @zero
 
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #MAPPING_BASE_LO
         sta     ptr1
         lda     #MAPPING_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_mappings
+        sta     ptr1
+        lda     #>_config_nio_bbc_mappings
+        sta     ptr1+1
+.endif
         lda     #0
         sta     tmp2                    ; output offset
         sta     tmp3                    ; unit
 
-        lda     #XRAM_BANK
-        jsr     _config_nio_xram_begin
+        jsr     begin_tables
 @row:
         ldy     #0
         lda     (ptr1),y                ; valid
@@ -97,7 +123,7 @@ _config_nio_bbc_build_mappings:
         cmp     #MAPPING_MAX
         bcc     @row
 @done:
-        jsr     _config_nio_xram_end
+        jsr     end_tables
         lda     tmp2
         ldx     #0
         rts
@@ -191,8 +217,7 @@ commit_host_line:
         lda     (ptr3),y
         jsr     host_ptr
 
-        lda     #XRAM_BANK
-        jsr     _config_nio_xram_begin
+        jsr     begin_tables
         ldy     #0
 @copy:
         lda     _config_nio_store_buf,y
@@ -205,7 +230,7 @@ commit_host_line:
         lda     #0
         sta     (ptr1),y
 @copied:
-        jsr     _config_nio_xram_end
+        jsr     end_tables
 
         ldy     #0
         lda     (ptr3),y
@@ -216,10 +241,17 @@ commit_host_line:
 
 host_ptr:
         sta     tmp3
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #HOST_BASE_LO
         sta     ptr1
         lda     #HOST_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_hosts
+        sta     ptr1
+        lda     #>_config_nio_bbc_hosts
+        sta     ptr1+1
+.endif
         lda     tmp3
         beq     @done
 @loop:
@@ -303,8 +335,7 @@ _config_nio_bbc_parse_mappings:
         pha
         lda     tmp3
         jsr     mapping_ptr
-        lda     #XRAM_BANK
-        jsr     _config_nio_xram_begin
+        jsr     begin_tables
         ldy     #0
         lda     #1
         sta     (ptr1),y
@@ -314,7 +345,7 @@ _config_nio_bbc_parse_mappings:
         iny
         pla
         sta     (ptr1),y
-        jsr     _config_nio_xram_end
+        jsr     end_tables
 
 @skip:
         jsr     skip_line
@@ -365,12 +396,18 @@ skip_line:
         rts
 
 clear_mappings:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #MAPPING_BASE_LO
         sta     ptr1
         lda     #MAPPING_BASE_HI
         sta     ptr1+1
-        lda     #XRAM_BANK
-        jsr     _config_nio_xram_begin
+.else
+        lda     #<_config_nio_bbc_mappings
+        sta     ptr1
+        lda     #>_config_nio_bbc_mappings
+        sta     ptr1+1
+.endif
+        jsr     begin_tables
         lda     #0
         sta     tmp3
 @row:
@@ -392,14 +429,21 @@ clear_mappings:
         lda     tmp3
         cmp     #MAPPING_MAX
         bcc     @row
-        jmp     _config_nio_xram_end
+        jmp     end_tables
 
 mapping_ptr:
         sta     tmp3
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #MAPPING_BASE_LO
         sta     ptr1
         lda     #MAPPING_BASE_HI
         sta     ptr1+1
+.else
+        lda     #<_config_nio_bbc_mappings
+        sta     ptr1
+        lda     #>_config_nio_bbc_mappings
+        sta     ptr1+1
+.endif
         lda     tmp3
         beq     @done
 @loop:

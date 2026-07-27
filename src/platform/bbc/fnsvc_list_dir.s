@@ -2,7 +2,11 @@
 
         .import popa, popax
         .import _fn_bbc_osword78, _fn_bbc_status_to_result
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         .import _config_nio_xram_begin, _config_nio_xram_end
+.else
+        .import _config_nio_bbc_entries
+.endif
         .import _fnsvc_bbc_req_buf, _fnsvc_bbc_resp_buf
         .import _fnsvc_bbc_last_error, _fnsvc_bbc_last_status
         .import _fnsvc_bbc_last_raw_error
@@ -68,6 +72,21 @@ entry_copy_len:
         .res    1
 
         .code
+
+begin_entries:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
+        lda     #XRAM_BANK
+        jmp     _config_nio_xram_begin
+.else
+        rts
+.endif
+
+end_entries:
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
+        jmp     _config_nio_xram_end
+.else
+        rts
+.endif
 
 list_return0:
         lda     #0
@@ -265,16 +284,22 @@ _fnsvc_config_nio_list_directory_page:
         sta     ptr1                    ; response entry cursor
         lda     #>(_fnsvc_bbc_resp_buf+10)
         sta     ptr1+1
+.ifdef CONFIG_NIO_BBC_XRAM_TABLES
         lda     #ENTRY_BASE_LO
         sta     ptr2                    ; XRAM entry cursor
         lda     #ENTRY_BASE_HI
         sta     ptr2+1
+.else
+        lda     #<_config_nio_bbc_entries
+        sta     ptr2                    ; entry cursor
+        lda     #>_config_nio_bbc_entries
+        sta     ptr2+1
+.endif
         lda     #0
         sta     delivered
         sta     saw_undelivered
 
-        lda     #XRAM_BANK
-        jsr     _config_nio_xram_begin
+        jsr     begin_entries
 
 @entry_loop:
         lda     count_lo
@@ -330,12 +355,12 @@ _fnsvc_config_nio_list_directory_page:
         jmp     @entry_loop
 
 @entry_bounds:
-        jsr     _config_nio_xram_end
+        jsr     end_entries
         lda     #FNSVC_ERR_ENTRY_BOUNDS
         jmp     fail_a
 
 @parse_done:
-        jsr     _config_nio_xram_end
+        jsr     end_entries
         ldy     #STATE_ENTRY_COUNT
         lda     delivered
         ldx     state_ptr
