@@ -134,6 +134,7 @@ static uint8_t label_width(const char *label)
 
 static void load_screen_template(const char *asset_name)
 {
+  clrscr();
   config_nio_bbc_load_template(asset_name);
 }
 
@@ -155,23 +156,19 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
   if (width == 0)
     return 0;
 
-  clear_field(0, 20, BBC_WIDTH);
-  cputc(147);
-  cputc(' ');
+  clear_field(1, 20, 37);
   cputs(label ? label : "Value");
+  cputs(":");
   if (label_len < 5)
     put_fixed("", (uint8_t) (5 - label_len));
-  cputc(149);
   clear_field(x, 20, width);
-  gotoxy((uint8_t) (x + width), 20);
-  cputc(149);
 
   config_nio_bbc_edit_buf = buf;
   config_nio_bbc_edit_cap = (uint8_t) cap;
   config_nio_bbc_edit_x = x;
   config_nio_bbc_edit_width = width;
   result = config_nio_bbc_edit_line();
-  clear_field(0, 20, BBC_WIDTH);
+  clear_field(1, 20, 37);
   return result;
 }
 

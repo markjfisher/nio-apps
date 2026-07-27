@@ -16,7 +16,7 @@ CH_EOL          = $0D
 CH_CURS_LEFT    = $88
 CH_CURS_RIGHT   = $89
 CH_DEL          = $7F
-EDIT_ROW        = 22
+EDIT_ROW        = 20
 
         .bss
 _config_nio_bbc_edit_buf:

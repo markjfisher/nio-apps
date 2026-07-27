@@ -52,7 +52,7 @@ def hosts() -> list[list[int]]:
         put(screen, 2, 6 + row, "  __ _______________________________")
     put(screen, 1, 16, "Left/Right change host page")
     put(screen, 1, 18, "RET browse   A add   E edit   D del")
-    put(screen, 0, 20, chr(147) + " Host  " + chr(149) + (" " * 30) + chr(149))
+    put(screen, 0, 20, "  Host:" + (" " * 33))
     return screen
 
 
@@ -65,7 +65,7 @@ def browse() -> list[list[int]]:
     for row in range(10):
         put(screen, 2, 7 + row, "   __________________________________")
     put(screen, 1, 19, "RET open dir/file   A assign   U up")
-    put(screen, 0, 20, chr(147) + " Slot  " + chr(149) + (" " * 30) + chr(149))
+    put(screen, 0, 20, "  Slot:" + (" " * 33))
     return screen
 
 
