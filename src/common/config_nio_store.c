@@ -9,6 +9,7 @@
 #define CONFIG_NIO_STORE_BUF_SIZE (CONFIG_NIO_URI_MAX + 1)
 uint16_t __fastcall__ config_nio_bbc_build_mappings(uint8_t *buf, uint16_t cap);
 uint16_t __fastcall__ config_nio_bbc_parse_hosts(config_nio_state_t *state);
+void __fastcall__ config_nio_bbc_parse_mappings(uint16_t len);
 uint16_t config_nio_bbc_parse_len;
 uint16_t config_nio_bbc_line_len;
 uint8_t config_nio_bbc_parse_finish;
@@ -283,14 +284,10 @@ static void parse_hosts(config_nio_state_t *state, const char *text)
 #ifdef CONFIG_NIO_BBC_LITE
 static int appstore_read_mappings(config_nio_state_t *state, uint8_t *exists)
 {
-  uint8_t i;
-  uint16_t p;
   fn_appstore_read_t rr;
   uint8_t result;
 
   (void) state;
-  for (i = 0; i < FNCTL_MAX_UNITS; i++)
-    (void) config_nio_mapping_clear(state, i);
 
   if (exists)
     *exists = 0;
@@ -304,41 +301,7 @@ static int appstore_read_mappings(config_nio_state_t *state, uint8_t *exists)
   if (exists)
     *exists = 1;
 
-  p = 0;
-  while (p < rr.bytes_read) {
-    uint8_t unit;
-    uint8_t slot;
-    uint8_t readonly;
-
-    if (appstore_buf[p] < '0' || appstore_buf[p] > '7')
-      goto skip_line;
-    unit = (uint8_t) (appstore_buf[p++] - '0');
-    if (p >= rr.bytes_read || appstore_buf[p++] != '\t')
-      goto skip_line;
-    if (p >= rr.bytes_read || appstore_buf[p] < '0' || appstore_buf[p] > '7')
-      goto skip_line;
-    slot = (uint8_t) (appstore_buf[p++] - '0');
-    if (p >= rr.bytes_read || appstore_buf[p++] != '\t')
-      goto skip_line;
-
-    readonly = (uint8_t) (p + 1 < rr.bytes_read &&
-                          appstore_buf[p] == 'r' &&
-                          appstore_buf[p + 1] == 'o');
-    if (unit < FNCTL_MAX_UNITS && slot < FNCTL_MAX_UNITS) {
-      config_nio_mapping_t mapping;
-
-      mapping.valid = 1;
-      mapping.slot = slot;
-      mapping.readonly = readonly;
-      (void) config_nio_mapping_set(state, unit, &mapping);
-    }
-
-skip_line:
-    while (p < rr.bytes_read && appstore_buf[p] != '\n' && appstore_buf[p] != '\r')
-      p++;
-    while (p < rr.bytes_read && (appstore_buf[p] == '\n' || appstore_buf[p] == '\r'))
-      p++;
-  }
+  config_nio_bbc_parse_mappings(rr.bytes_read);
   return 1;
 }
 #else

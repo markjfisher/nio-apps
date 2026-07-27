@@ -1,5 +1,6 @@
         .export _config_nio_bbc_build_mappings
         .export _config_nio_bbc_parse_hosts
+        .export _config_nio_bbc_parse_mappings
 
         .import popax
         .import _config_nio_xram_begin
@@ -225,6 +226,186 @@ host_ptr:
         clc
         lda     ptr1
         adc     #HOST_SIZE
+        sta     ptr1
+        bcc     @next
+        inc     ptr1+1
+@next:
+        dec     tmp3
+        bne     @loop
+@done:
+        rts
+
+; void config_nio_bbc_parse_mappings(uint16_t len)
+_config_nio_bbc_parse_mappings:
+        sta     tmp1                    ; input length low
+        lda     #<_config_nio_appstore_buf
+        sta     ptr2
+        lda     #>_config_nio_appstore_buf
+        sta     ptr2+1
+        lda     #0
+        sta     tmp2                    ; input offset
+        jsr     clear_mappings
+
+@line:
+        lda     tmp2
+        cmp     tmp1
+        bcs     @done
+
+        ldy     tmp2
+        lda     (ptr2),y
+        cmp     #'0'
+        bcc     @skip
+        cmp     #'8'
+        bcs     @skip
+        sec
+        sbc     #'0'
+        sta     tmp3                    ; unit
+        inc     tmp2
+
+        jsr     next_char
+        cmp     #$09
+        bne     @skip
+        inc     tmp2
+
+        jsr     next_char
+        cmp     #'0'
+        bcc     @skip
+        cmp     #'8'
+        bcs     @skip
+        sec
+        sbc     #'0'
+        sta     tmp4                    ; slot
+        inc     tmp2
+
+        jsr     next_char
+        cmp     #$09
+        bne     @skip
+        inc     tmp2
+
+        lda     #0                      ; default rw
+        ldy     tmp2
+        cpy     tmp1
+        bcs     @set
+        lda     (ptr2),y
+        cmp     #'r'
+        bne     @rw
+        iny
+        cpy     tmp1
+        bcs     @rw
+        lda     (ptr2),y
+        cmp     #'o'
+        bne     @rw
+        lda     #1
+        bne     @set
+@rw:
+        lda     #0
+@set:
+        pha
+        lda     tmp3
+        jsr     mapping_ptr
+        lda     #XRAM_BANK
+        jsr     _config_nio_xram_begin
+        ldy     #0
+        lda     #1
+        sta     (ptr1),y
+        iny
+        lda     tmp4
+        sta     (ptr1),y
+        iny
+        pla
+        sta     (ptr1),y
+        jsr     _config_nio_xram_end
+
+@skip:
+        jsr     skip_line
+        jmp     @line
+
+@done:
+        rts
+
+next_char:
+        lda     tmp2
+        cmp     tmp1
+        bcs     @eof
+        ldy     tmp2
+        lda     (ptr2),y
+        rts
+@eof:
+        lda     #0
+        rts
+
+skip_line:
+@scan:
+        lda     tmp2
+        cmp     tmp1
+        bcs     @done
+        ldy     tmp2
+        lda     (ptr2),y
+        cmp     #$0A
+        beq     @nl
+        cmp     #$0D
+        beq     @nl
+        inc     tmp2
+        bne     @scan
+@nl:
+@nl_loop:
+        lda     tmp2
+        cmp     tmp1
+        bcs     @done
+        ldy     tmp2
+        lda     (ptr2),y
+        cmp     #$0A
+        beq     @consume
+        cmp     #$0D
+        bne     @done
+@consume:
+        inc     tmp2
+        bne     @nl_loop
+@done:
+        rts
+
+clear_mappings:
+        lda     #MAPPING_BASE_LO
+        sta     ptr1
+        lda     #MAPPING_BASE_HI
+        sta     ptr1+1
+        lda     #XRAM_BANK
+        jsr     _config_nio_xram_begin
+        lda     #0
+        sta     tmp3
+@row:
+        ldy     #0
+        lda     #0
+        sta     (ptr1),y
+        iny
+        sta     (ptr1),y
+        iny
+        sta     (ptr1),y
+        clc
+        lda     ptr1
+        adc     #MAPPING_SIZE
+        sta     ptr1
+        bcc     @next
+        inc     ptr1+1
+@next:
+        inc     tmp3
+        lda     tmp3
+        cmp     #MAPPING_MAX
+        bcc     @row
+        jmp     _config_nio_xram_end
+
+mapping_ptr:
+        sta     tmp3
+        lda     #MAPPING_BASE_LO
+        sta     ptr1
+        lda     #MAPPING_BASE_HI
+        sta     ptr1+1
+        lda     tmp3
+        beq     @done
+@loop:
+        clc
+        lda     ptr1
+        adc     #MAPPING_SIZE
         sta     ptr1
         bcc     @next
         inc     ptr1+1
