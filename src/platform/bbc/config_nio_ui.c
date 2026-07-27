@@ -23,8 +23,11 @@ enum {
 
 #ifndef CONFIG_NIO_BBC_LITE
 static char num_buf[6];
-#endif
 static char edit_buf[CONFIG_NIO_URI_MAX + 1];
+#else
+extern uint8_t config_nio_store_buf[];
+#define edit_buf ((char *) config_nio_store_buf)
+#endif
 static char uri_buf[BBC_URI_WORK_MAX];
 static uint8_t current_screen;
 static uint8_t selected_host;
