@@ -661,10 +661,10 @@ void config_nio_run(config_nio_state_t *state)
     redraw = 0;
     if (key_is_quit(key)) {
       done = 1;
-    } else if (key == 'H') {
+    } else if (key == 'h' || key == 'H') {
       current_screen = SCREEN_HOSTS;
       redraw = 1;
-    } else if (key == 'S') {
+    } else if (key == 's' || key == 'S') {
       current_screen = SCREEN_SLOTS;
       redraw = 1;
     } else if (key == 'x' || key == 'X') {
