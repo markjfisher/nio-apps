@@ -48,7 +48,9 @@ uint8_t fnsvc_bbc_last_error;
 uint8_t fnsvc_bbc_last_status;
 uint8_t fnsvc_bbc_last_raw_error;
 uint16_t fnsvc_bbc_last_response_len;
+#ifndef CONFIG_NIO_BBC_LITE
 static config_nio_entry_t list_entry;
+#endif
 
 #define req_buf fnsvc_bbc_req_buf
 #define resp_buf fnsvc_bbc_resp_buf
@@ -57,6 +59,7 @@ static config_nio_entry_t list_entry;
 #define last_raw_error fnsvc_bbc_last_raw_error
 #define last_response_len fnsvc_bbc_last_response_len
 
+#ifndef CONFIG_NIO_BBC_LITE
 static int fail(uint8_t error)
 {
   last_error = error;
@@ -169,6 +172,7 @@ int fnsvc_config_nio_list_directory_page(config_nio_state_t *state,
   state->entry_count = delivered;
   return 1;
 }
+#endif
 
 #ifndef CONFIG_NIO_BBC_LITE
 int fnsvc_get_mount(uint8_t slot, fnsvc_mount_t *mount)

@@ -80,6 +80,7 @@ CONFIG_NIO_ASM_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_state.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_tables.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_xram_bank.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/fnsvc_list_dir.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/fnsvc_set_mount.s
 
 CONFIG_NIO_SRCS := $(if $(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_$(TARGET)),$(CONFIG_NIO_SRCS_COMMON))
