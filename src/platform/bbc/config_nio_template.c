@@ -1,27 +1,21 @@
 #include <stdint.h>
 
-void __fastcall__ bbc_oscli(const char *cmd);
+extern const uint8_t config_nio_tpl_hosts[];
+extern const uint8_t config_nio_tpl_browse[];
+extern const uint8_t config_nio_tpl_slots[];
 
-static char load_cmd[] = "LOAD XXXXXXX FFFF\r";
-
-static char hex_digit(uint8_t value)
-{
-  value = (uint8_t) (value & 0x0f);
-  return (char) (value < 10 ? ('0' + value) : ('A' + value - 10));
-}
+void __fastcall__ config_nio_bbc_decompress_template(const uint8_t *src);
 
 void config_nio_bbc_load_template(const char *asset_name)
 {
-  uint8_t i;
-  uint16_t base;
+  const uint8_t *src;
 
-  for (i = 0; i < 7; i++)
-    load_cmd[5 + i] = asset_name[i] ? asset_name[i] : ' ';
+  if (asset_name[2] == 'H')
+    src = config_nio_tpl_hosts;
+  else if (asset_name[2] == 'B')
+    src = config_nio_tpl_browse;
+  else
+    src = config_nio_tpl_slots;
 
-  base = 0x7c00;
-  load_cmd[13] = hex_digit((uint8_t) (base >> 12));
-  load_cmd[14] = hex_digit((uint8_t) (base >> 8));
-  load_cmd[15] = hex_digit((uint8_t) (base >> 4));
-  load_cmd[16] = hex_digit((uint8_t) base);
-  bbc_oscli(load_cmd);
+  config_nio_bbc_decompress_template(src);
 }

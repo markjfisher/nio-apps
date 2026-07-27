@@ -77,6 +77,8 @@ CONFIG_NIO_ASM_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_edit.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_screen.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_data.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_decompress.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_store_bbc.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_state.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_tables.s \

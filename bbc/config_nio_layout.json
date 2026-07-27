@@ -1,0 +1,25 @@
+{
+  "screen": {
+    "width": 40,
+    "height": 25,
+    "status": { "x": 0, "y": 22, "width": 40 },
+    "status_clear_2_y": 23,
+    "footer": { "x": 0, "y": 23, "text": "BBC MODE 7" }
+  },
+  "hosts": {
+    "page_label": { "x": 13, "y": 3 },
+    "rows": { "x": 1, "y": 6, "count": 8, "uri_width": 33 },
+    "input": { "label_x": 1, "text_x": 8, "y": 20, "width": 30, "clear_width": 37 }
+  },
+  "browse": {
+    "host": { "x": 6, "y": 4, "width": 33 },
+    "path": { "x": 6, "y": 5, "width": 33 },
+    "rows": { "x": 1, "y": 7, "count": 10, "name_width": 35, "clear_width": 38 },
+    "input": { "label_x": 1, "text_x": 8, "y": 20, "width": 30, "clear_width": 37 },
+    "assign": { "x": 1, "y": 7, "title_y": 7, "hint_y": 8, "rows_y": 9, "count": 8, "uri_width": 34, "clear_width": 38, "clear_rows": 11 }
+  },
+  "slots": {
+    "drives": { "x": 1, "y": 5, "count": 4, "basename_width": 26, "empty_width": 29 },
+    "slots": { "x": 1, "y": 12, "count": 8, "uri_width": 35 }
+  }
+}

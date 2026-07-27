@@ -1,6 +1,7 @@
         .export _config_nio_bbc_edit_buf
         .export _config_nio_bbc_edit_cap
         .export _config_nio_bbc_edit_x
+        .export _config_nio_bbc_edit_y
         .export _config_nio_bbc_edit_width
         .export _config_nio_bbc_edit_line
 
@@ -16,14 +17,14 @@ CH_EOL          = $0D
 CH_CURS_LEFT    = $88
 CH_CURS_RIGHT   = $89
 CH_DEL          = $7F
-EDIT_ROW        = 20
-
         .bss
 _config_nio_bbc_edit_buf:
         .res    2
 _config_nio_bbc_edit_cap:
         .res    1
 _config_nio_bbc_edit_x:
+        .res    1
+_config_nio_bbc_edit_y:
         .res    1
 _config_nio_bbc_edit_width:
         .res    1
@@ -278,7 +279,7 @@ draw_field:
         jsr     OSWRCH
         lda     _config_nio_bbc_edit_x
         jsr     OSWRCH
-        lda     #EDIT_ROW
+        lda     _config_nio_bbc_edit_y
         jsr     OSWRCH
 
         lda     #0
@@ -318,7 +319,7 @@ draw_field:
         jsr     OSWRCH
         lda     edit_cursor_x
         jsr     OSWRCH
-        lda     #EDIT_ROW
+        lda     _config_nio_bbc_edit_y
         jmp     OSWRCH
 
 cursor_on:
