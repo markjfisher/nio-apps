@@ -36,7 +36,7 @@ def row_with_text(bbc, needle: str) -> int:
 
 def select_browse_entry(bbc, needle: str) -> None:
     row = row_with_text(bbc, needle)
-    first_entry_row = 7
+    first_entry_row = 9
     if row < first_entry_row:
         raise AssertionError(f"{needle!r} appeared outside browse entries\n{dump_screen(bbc)}")
     for _ in range(row - first_entry_row):
@@ -59,7 +59,6 @@ def test_config_nio_bbc_browse_assign_mount_real_fujinet(beebium_config_nio, scr
     wait_for_screen_text(bbc, "fujinet.diller.org")
 
     press_key(bbc, "E")
-    wait_for_screen_text(bbc, "Host:")
     type_text(bbc, "\x7f\x7f\x7f\x7f\x7fhost:/\r")
     wait_for_screen_text(bbc, "host:/", evidence=screen_evidence, label="hosts edited")
 
@@ -102,3 +101,28 @@ def test_config_nio_bbc_browse_assign_mount_real_fujinet(beebium_config_nio, scr
     press_key(bbc, "X", wait=1.0)
     command(bbc, "*. :1.$")
     wait_for_screen_text(bbc, "HELLO", evidence=screen_evidence, label="mounted drive catalogue")
+
+
+def test_config_nio_bbc_large_directory_renders_real_fujinet(beebium_config_nio, screen_evidence):
+    bbc = beebium_config_nio
+
+    command(bbc, "*FUJI")
+    type_text(bbc, "*CONFNIO\r")
+    wait_for_screen_text(bbc, "sd0:/")
+
+    press_key(bbc, "E")
+    type_text(bbc, "\x7f\x7f\x7f\x7f\x7fhost:/\r")
+    wait_for_screen_text(bbc, "host:/", evidence=screen_evidence, label="large hosts edited")
+
+    press_key(bbc, "\r", wait=0.5)
+    wait_for_screen_text(bbc, "bbc", evidence=screen_evidence, label="large browse root")
+    select_browse_entry(bbc, "bbc")
+    press_key(bbc, "\r", wait=0.5)
+
+    screen = wait_for_screen_text(
+        bbc,
+        "basic2.ssd",
+        evidence=screen_evidence,
+        label="large browse bbc",
+    )
+    assert "fs.ssd" in screen

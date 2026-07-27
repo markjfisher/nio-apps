@@ -63,6 +63,10 @@ extern uint8_t config_nio_bbc_edit_y;
 extern uint8_t config_nio_bbc_edit_width;
 int config_nio_bbc_edit_line(void);
 void config_nio_bbc_load_template(const char *asset_name);
+#ifdef CONFIG_NIO_BBC_LITE
+void __fastcall__ config_nio_bbc_parent_path(char *path);
+int config_nio_bbc_enter_dir(char *path, const char *name);
+#endif
 #define clear_line(row) config_nio_bbc_clear_line(row)
 #define bbc_cursor(on) config_nio_bbc_cursor(on)
 #define put_fixed(s, width) config_nio_bbc_put_fixed((s), (width))
@@ -196,6 +200,9 @@ static int prompt_line(const char *label, char *buf, uint16_t cap)
 
 static void parent_path(char *path)
 {
+#ifdef CONFIG_NIO_BBC_LITE
+  config_nio_bbc_parent_path(path);
+#else
   uint16_t len;
 
   len = (uint16_t) strlen(path);
@@ -203,10 +210,18 @@ static void parent_path(char *path)
     path[--len] = 0;
   while (len > 0 && path[len - 1] != '/')
     path[--len] = 0;
+#endif
 }
 
 static int enter_dir(config_nio_state_t *state, const char *name)
 {
+#ifdef CONFIG_NIO_BBC_LITE
+  if (!config_nio_bbc_enter_dir(state->browse_path, name)) {
+    config_nio_set_status(state, "Path long");
+    return 0;
+  }
+  return 1;
+#else
   uint16_t len;
   uint16_t nlen;
 
@@ -223,6 +238,7 @@ static int enter_dir(config_nio_state_t *state, const char *name)
   state->browse_path[len++] = '/';
   state->browse_path[len] = 0;
   return 1;
+#endif
 }
 
 static int fetch_browse_page(config_nio_state_t *state)

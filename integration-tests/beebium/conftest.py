@@ -164,6 +164,39 @@ def real_fujinet_config_nio(pytestconfig):
 
     image_dir = data_root / "cfg" / "images"
     image_dir.mkdir(parents=True, exist_ok=True)
+    large_dir = data_root / "bbc"
+    large_dir.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "aardvark",
+        "basic2.ssd",
+        "blank.ssd",
+        "bwc.ssd",
+        "chuck.ssd",
+        "ctests.ssd",
+        "empty.ssd",
+        "fcs.ssd",
+        "fish",
+        "fn-utls.ssd",
+        "fs.ssd",
+        "fstest.ssd",
+        "impetus_mode7.ssd",
+        "iss.ssd",
+        "nellan.ssd",
+        "net-nio-clib.ssd",
+        "net-nio.ssd",
+        "net.ssd",
+        "openbas.ssd",
+        "osargs.ssd",
+        "osfile.ssd",
+        "pent.ssd",
+        "play.ssd",
+        "play_bak.ssd",
+        "weather.ssd",
+    ):
+        if "." in name:
+            (large_dir / name).write_bytes(b"")
+        else:
+            (large_dir / name).mkdir(exist_ok=True)
     create_ssd = _WORKSPACE / "repos" / "fujinet-nio-lib" / "scripts" / "create_ssd.py"
     if not create_ssd.is_file():
         pytest.skip(f"SSD generator not found at {create_ssd}")

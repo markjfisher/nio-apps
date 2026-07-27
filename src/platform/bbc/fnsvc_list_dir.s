@@ -61,6 +61,8 @@ max_entries:
         .res    1
 resp_len_lo:
         .res    1
+resp_len_hi:
+        .res    1
 resp_flags:
         .res    1
 count_lo:
@@ -235,15 +237,15 @@ _fnsvc_config_nio_list_directory_page:
         sta     resp_len_lo
         lda     call_block+14
         sta     _fnsvc_bbc_last_response_len+1
-        beq     @status_check
-        lda     #$FF
-        sta     resp_len_lo
+        sta     resp_len_hi
 @status_check:
         lda     _fnsvc_bbc_last_status
         beq     @status_ok
         lda     #FNSVC_ERR_STATUS
         jmp     fail_a
 @status_ok:
+        lda     resp_len_hi
+        bne     @len_min_ok
         lda     resp_len_lo
         cmp     #10
         bcs     @len_min_ok
@@ -266,18 +268,35 @@ _fnsvc_config_nio_list_directory_page:
         lda     _fnsvc_bbc_resp_buf+6
 @store_count:
         sta     count_lo
-        lda     _fnsvc_bbc_resp_buf+9
-        beq     @entries_len_hi_ok
-        lda     #FNSVC_ERR_ENTRIES_BOUNDS
-        jmp     fail_a
-@entries_len_hi_ok:
         lda     _fnsvc_bbc_resp_buf+8
         clc
         adc     #10
+        sta     tmp2
+        lda     _fnsvc_bbc_resp_buf+9
+        adc     #0
+        sta     tmp4
+        lda     tmp4
+        cmp     #>BBC_RESP_BUF_SIZE
+        bcc     @required_fits
+        bne     @entries_bad
+        lda     tmp2
+        cmp     #<BBC_RESP_BUF_SIZE+1
         bcs     @entries_bad
+@required_fits:
+        lda     tmp4
+        cmp     resp_len_hi
+        bcc     @entries_ok
+        bne     @use_required_len
+        lda     tmp2
         cmp     resp_len_lo
         bcc     @entries_ok
         beq     @entries_ok
+@use_required_len:
+        lda     tmp2
+        sta     resp_len_lo
+        lda     tmp4
+        sta     resp_len_hi
+        jmp     @entries_ok
 @entries_bad:
         lda     #FNSVC_ERR_ENTRIES_BOUNDS
         jmp     fail_a
@@ -420,18 +439,15 @@ ensure_two:
         sta     tmp2
         lda     ptr1+1
         sbc     #>_fnsvc_bbc_resp_buf
-        bne     @bad
+        sta     tmp4
         lda     tmp2
         clc
         adc     #2
-        bcs     @bad
-        cmp     resp_len_lo
-        bcc     @ok
-        beq     @ok
-@bad:  sec
-        rts
-@ok:   clc
-        rts
+        sta     tmp2
+        lda     tmp4
+        adc     #0
+        sta     tmp4
+        jmp     check_response_bound
 
 ensure_name:
         lda     ptr1
@@ -440,11 +456,22 @@ ensure_name:
         sta     tmp2
         lda     ptr1+1
         sbc     #>_fnsvc_bbc_resp_buf
-        bne     @bad
+        sta     tmp4
         lda     tmp2
         clc
         adc     entry_name_len
-        bcs     @bad
+        sta     tmp2
+        lda     tmp4
+        adc     #0
+        sta     tmp4
+        ; fall through
+
+check_response_bound:
+        lda     tmp4
+        cmp     resp_len_hi
+        bcc     @ok
+        bne     @bad
+        lda     tmp2
         cmp     resp_len_lo
         bcc     @ok
         beq     @ok

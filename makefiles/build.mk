@@ -8,7 +8,7 @@ include makefiles/targets.mk
 
 FNSVC_LIST_MAX_PAYLOAD ?= 420
 ifeq ($(TARGET),bbc)
-FNSVC_LIST_MAX_PAYLOAD := 360
+FNSVC_LIST_MAX_PAYLOAD := 250
 endif
 
 APP_DIR := apps/common
@@ -76,6 +76,7 @@ CONFIG_NIO_SRCS_bbc := \
 CONFIG_NIO_ASM_SRCS_bbc := \
 	$(SRC_DIR)/platform/$(PLATFORM)/bbc_oscli.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_edit.s \
+	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_path.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_screen.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_data.s \
 	$(SRC_DIR)/platform/$(PLATFORM)/config_nio_template_decompress.s \
