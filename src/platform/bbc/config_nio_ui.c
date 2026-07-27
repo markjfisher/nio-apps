@@ -41,6 +41,7 @@ void __fastcall__ config_nio_bbc_cursor(uint8_t on);
 void __fastcall__ config_nio_bbc_clear_line(uint8_t row);
 void config_nio_bbc_put_fixed(const char *s, uint8_t width);
 void config_nio_bbc_put_tail(const char *s, uint8_t width);
+void config_nio_bbc_put_basename(const char *s, uint8_t width);
 extern char *config_nio_bbc_edit_buf;
 extern uint8_t config_nio_bbc_edit_cap;
 extern uint8_t config_nio_bbc_edit_x;
@@ -50,6 +51,7 @@ int config_nio_bbc_edit_line(void);
 #define bbc_cursor(on) config_nio_bbc_cursor(on)
 #define put_fixed(s, width) config_nio_bbc_put_fixed((s), (width))
 #define put_tail(s, width) config_nio_bbc_put_tail((s), (width))
+#define put_basename(s, width) config_nio_bbc_put_basename((s), (width))
 
 #ifndef CONFIG_NIO_BBC_LITE
 static void nl(void)
@@ -72,28 +74,6 @@ static void text_at(uint8_t x, uint8_t y, const char *s)
 {
   gotoxy(x, y);
   cputs(s ? s : "");
-}
-
-static void put_basename(const char *uri, uint8_t width)
-{
-  const char *leaf;
-  const char *p;
-
-  if (!uri || !*uri) {
-    put_fixed("", width);
-    return;
-  }
-
-  leaf = uri;
-  p = uri;
-  while (*p) {
-    if (*p == '/' && p[1])
-      leaf = p + 1;
-    p++;
-  }
-  if (!*leaf)
-    leaf = uri;
-  put_tail(leaf, width);
 }
 
 #ifndef CONFIG_NIO_BBC_LITE

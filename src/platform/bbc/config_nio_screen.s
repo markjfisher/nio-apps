@@ -2,6 +2,7 @@
         .export _config_nio_bbc_clear_line
         .export _config_nio_bbc_put_fixed
         .export _config_nio_bbc_put_tail
+        .export _config_nio_bbc_put_basename
 
         .import popax
         .importzp ptr1, ptr2, tmp1, tmp2
@@ -91,6 +92,7 @@ _config_nio_bbc_put_tail:
         jsr     popax
         sta     ptr1
         stx     ptr1+1
+put_tail_ptr1:
         sta     ptr2
         stx     ptr2+1
         ora     ptr1+1
@@ -115,3 +117,42 @@ _config_nio_bbc_put_tail:
         bcc     @tail
         inc     ptr1+1
 @tail: jmp     put_fixed_ptr1
+
+; void config_nio_bbc_put_basename(const char *s, uint8_t width)
+_config_nio_bbc_put_basename:
+        sta     tmp1
+        jsr     popax
+        sta     ptr1
+        stx     ptr1+1
+        sta     ptr2
+        stx     ptr2+1
+        ora     ptr1+1
+        beq     put_fixed_ptr1
+
+        ldy     #0
+@scan: lda     (ptr1),y
+        beq     @done
+        cmp     #'/'
+        bne     @inc
+        iny
+        lda     (ptr1),y
+        dey
+        beq     @inc
+        lda     ptr1
+        clc
+        adc     #1
+        sta     ptr2
+        lda     ptr1+1
+        adc     #0
+        sta     ptr2+1
+@inc:  inc     ptr1
+        bne     @scan
+        inc     ptr1+1
+        bne     @scan
+@done: lda     ptr2
+        sta     ptr1
+        lda     ptr2+1
+        sta     ptr1+1
+        lda     ptr2
+        ldx     ptr2+1
+        jmp     put_tail_ptr1
