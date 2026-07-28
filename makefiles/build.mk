@@ -11,7 +11,8 @@ ifeq ($(TARGET),bbc)
 FNSVC_LIST_MAX_PAYLOAD := 250
 endif
 
-APP_DIR := apps/common
+CORE_APP_DIR := apps/core
+TEST_APP_DIR := apps/test
 CONFIG_NIO_DIR := apps/config-nio
 SRC_DIR := src
 APP_INCLUDE_DIR := include/common
@@ -24,17 +25,19 @@ OBJ_DIR := $(TARGET_BUILD_DIR)/obj
 BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
-COMMON_APP_SRCS := $(sort $(wildcard $(APP_DIR)/*.c))
-COMMON_PROGRAMS_ALL := $(basename $(notdir $(COMMON_APP_SRCS)))
-COMMON_PROGRAMS_EXCLUDE_msdos := fsioraw keycode
-COMMON_PROGRAMS_EXCLUDE_atari := fboot keycode
-COMMON_PROGRAMS_EXCLUDE_bbc := fapp fboot fdrive fhost fin fls fmount fout fsioraw
-COMMON_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw config-nio keycode
-COMMON_PROGRAMS_EXCLUDE_linux := keycode
-COMMON_PROGRAMS_EXCLUDE := $(COMMON_PROGRAMS_EXCLUDE_$(TARGET))
-COMMON_PROGRAMS := $(filter-out $(COMMON_PROGRAMS_EXCLUDE),$(COMMON_PROGRAMS_ALL))
+CORE_APP_SRCS := $(sort $(wildcard $(CORE_APP_DIR)/*.c))
+TEST_APP_SRCS := $(sort $(wildcard $(TEST_APP_DIR)/*.c))
+APP_SRCS := $(CORE_APP_SRCS) $(TEST_APP_SRCS)
+APP_PROGRAMS_ALL := $(basename $(notdir $(APP_SRCS)))
+APP_PROGRAMS_EXCLUDE_msdos := fsioraw keycode
+APP_PROGRAMS_EXCLUDE_atari := fboot keycode
+APP_PROGRAMS_EXCLUDE_bbc := fapp fboot fdrive fhost fin fls fmount fout fsioraw
+APP_PROGRAMS_EXCLUDE_bbc-clib := fboot fsioraw config-nio keycode
+APP_PROGRAMS_EXCLUDE_linux := keycode
+APP_PROGRAMS_EXCLUDE := $(APP_PROGRAMS_EXCLUDE_$(TARGET))
+APP_PROGRAMS := $(filter-out $(APP_PROGRAMS_EXCLUDE),$(APP_PROGRAMS_ALL))
 CONFIG_NIO_PROGRAMS := $(if $(filter bbc-clib,$(TARGET)),,config-nio)
-PROGRAMS := $(COMMON_PROGRAMS) $(CONFIG_NIO_PROGRAMS)
+PROGRAMS := $(APP_PROGRAMS) $(CONFIG_NIO_PROGRAMS)
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
 
@@ -45,11 +48,11 @@ endif
 NO_NIO_LIB_PROGRAMS := irqmon keycode
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
-COMMON_APP_OBJS := $(COMMON_PROGRAMS:%=$(OBJ_DIR)/$(APP_DIR)/%.o)
+APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(APP_SRCS))
 MSDOS_LIB_OBJS := $(if $(filter msdos,$(TARGET)),$(OBJ_DIR)/msdos/lib/nio.o)
 MSDOS_APP_OBJS := $(MSDOS_PROGRAMS:%=$(OBJ_DIR)/msdos/apps/%.o)
 PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT)) $(MSDOS_PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT))
-DEPENDS := $(COMMON_OBJS:.o=.d) $(COMMON_APP_OBJS:.o=.d) $(MSDOS_LIB_OBJS:.o=.d) $(MSDOS_APP_OBJS:.o=.d)
+DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d) $(MSDOS_LIB_OBJS:.o=.d) $(MSDOS_APP_OBJS:.o=.d)
 
 ifeq ($(COMPILER_FAMILY),wcc)
 include makefiles/compiler-wcc.mk
@@ -131,7 +134,7 @@ DISK_TARGETS :=
 -include makefiles/config-nio-bbc.mk
 
 .PHONY: all clean disk boot-disk install-boot-disk $(PROGRAMS) $(MSDOS_PROGRAMS) $(DISK_TARGETS) $(BOOT_DISK_TARGETS)
-.SECONDARY: $(COMMON_APP_OBJS) $(COMMON_OBJS) $(CONFIG_NIO_MAIN_OBJ) $(CONFIG_NIO_OBJS) $(CONFIG_NIO_ASM_OBJS)
+.SECONDARY: $(APP_OBJS) $(COMMON_OBJS) $(CONFIG_NIO_MAIN_OBJ) $(CONFIG_NIO_OBJS) $(CONFIG_NIO_ASM_OBJS)
 
 all: $(PROGRAM_BINS)
 
@@ -153,15 +156,12 @@ $(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	ca65 -t $(TARGET) $(ASMFLAGS) -I /home/markf/dev/nio/fujinet-nio-workspace/repos/cc65/libsrc/bbc -o $@ $<
 
-$(BIN_DIR)/%$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/%.o $(COMMON_OBJS) $(NIO_LIB_FILE) | $(BIN_DIR)
-	$(call link_program)
-
-define COMMON_PROGRAM_RULE
-$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),config-nio),$$(CONFIG_NIO_OBJS) $$(CONFIG_NIO_ASM_OBJS) $$(CONFIG_NIO_DEPS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
+define APP_PROGRAM_RULE
+$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$$(patsubst %.c,%.o,$$(filter %/$(1).c,$$(APP_SRCS))) $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
 	$$(call link_program)
 endef
 
-$(foreach prog,$(COMMON_PROGRAMS),$(eval $(call COMMON_PROGRAM_RULE,$(prog))))
+$(foreach prog,$(APP_PROGRAMS),$(eval $(call APP_PROGRAM_RULE,$(prog))))
 
 $(BIN_DIR)/config-nio$(PROGRAM_EXT): $(CONFIG_NIO_MAIN_OBJ) $(CONFIG_NIO_COMMON_OBJS) $(CONFIG_NIO_OBJS) $(CONFIG_NIO_ASM_OBJS) $(CONFIG_NIO_DEPS) $(NIO_LIB_FILE) | $(BIN_DIR)
 	$(call link_program)

@@ -1,21 +1,26 @@
 # nio-apps
 
-A repository for fujinet-nio test applications.
+A repository for FujiNet-NIO example, diagnostic, and test applications.
 
-Anything serious will move out of this repo. This repo's purpose is a platform for initial applications without a plethora of separate repositories.
+Product utilities are being split out of this repository. This repo's purpose is
+to hold short examples and applications that exercise FujiNet-NIO functionality
+without becoming product surfaces themselves.
 
 ## Layout
 
-- `apps/common/` contains shared command applications.
+- `apps/core/` temporarily contains portable C implementations of core `F*`
+  utilities while they wait for migration to a core-app repository.
+- `apps/test/` contains examples, smoke tests, and diagnostic applications.
 - `apps/config-nio/` contains the product configuration application and its
-  app-owned shared/platform code.
+  app-owned shared/platform code while it waits for migration to a config
+  repository.
 - `src/common/` contains shared app support code.
 - `src/platform/<platform>/` contains platform backends and any platform-tuned
   code.
 - `makefiles/` contains the target/compiler/disk build fragments.
 - `msdos/` contains MS-DOS-only tools, scripts, and compatibility entry points.
 
-The portable C `F*` applications currently build for:
+The portable C core `F*` applications currently build for:
 
 - `linux`, using GCC and the Linux NIO backend.
 - `msdos`, using Open Watcom and the MS-DOS IOCTL backend.
@@ -51,10 +56,11 @@ Outputs are written to `build/<target>/bin/`:
 - Atari: `.xex`
 - BBC: extensionless program binaries
 
-Common apps are still discovered from `apps/common/*.c`. MS-DOS-specific apps
-are discovered from `msdos/apps/*.c`. `config-nio` is intentionally outside
-that shared app bucket under `apps/config-nio/`, so its source tree can move to
-its own repository without untangling generic app code first.
+Portable apps are discovered from `apps/core/*.c` and `apps/test/*.c`.
+MS-DOS-specific apps are discovered from `msdos/apps/*.c`. `config-nio` is
+intentionally outside both portable app buckets under `apps/config-nio/`, so its
+source tree can move to its own repository without untangling generic app code
+first.
 
 Future app moves should prefer an app-owned directory with its own small build
 description over adding more top-level source files that are resolved only by

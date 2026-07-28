@@ -1,8 +1,19 @@
 # nio-apps Architecture
 
-`nio-apps` is a staging ground for portable FujiNet-NIO applications and
-diagnostic tools. It should not become the permanent home for every product
-surface or every platform utility.
+`nio-apps` is a staging ground for portable FujiNet-NIO examples, diagnostics,
+and tests. It should not become the permanent home for product configuration or
+core user utilities.
+
+The repository split direction is:
+
+- `nio-apps`: short examples, diagnostics, smoke tests, and API exercisers.
+- `nio-core-apps`: user-facing utilities such as `fdrive`, `fhost`, `fin`,
+  `fout`, `fmount`, `fls`, and `fboot`.
+- `nio-config`: the `config-nio` product configuration application.
+
+The `nio-*` prefix keeps these repositories grouped together and matches the
+short name used by this repository. It is intentionally less verbose than the
+lower-level `fujinet-nio-lib` and `fujinet-nio` repositories.
 
 ## Application Layout
 
@@ -11,8 +22,8 @@ transport and service helpers can stay under `src/common/`, but broad shared
 files should not change shape for one application through large preprocessor
 branches.
 
-`config-nio` is the main pressure point. It is a core NIO configuration surface,
-not just an example app. It now has an app-owned layout:
+`config-nio` is a core NIO configuration surface, not an example app. It now has
+an app-owned layout:
 
 - `apps/config-nio/main.c` for the application entry point.
 - `apps/config-nio/include/` for app-owned public headers.
@@ -27,22 +38,29 @@ consume explicit app artifacts rather than source globs.
 ## Build Layout Direction
 
 The old TODO covered a real structural problem: too many programs were loose
-files whose application identity existed only in the shared makefile. The chosen
-direction is:
+files whose application identity existed only in the shared makefile. The first
+cleanup step is now in place:
 
-- Application source belongs under `apps/<name>/`.
-- Each substantial application should own its headers, common code, platform
-  code, generated assets, and small build description.
+- `apps/core/` holds portable C implementations of core utilities until
+  `nio-core-apps` exists.
+- `apps/test/` holds examples, smoke tests, and diagnostics that belong in
+  `nio-apps`.
+- `apps/config-nio/` holds config code until `nio-config` exists.
+
+The chosen long-term build direction is:
+
+- Each substantial application should own its source directory, headers, common
+  code, platform code, generated assets, and small build description.
 - Repository-level makefiles should compose applications and platform disks;
   they should not know internal file lists for every app.
-- `apps/common/*.c` remains a temporary compatibility bucket for small portable
-  utilities while they are migrated.
+- Repo boundaries should carry product meaning: core utilities and config are
+  not test apps.
 
 `config-nio` is the first application moved into that structure because it is a
 core product surface and the most likely candidate for a later repository split.
-The next cleanup step is to move each remaining utility from `apps/common/` into
-`apps/<utility>/main.c` with explicit platform support metadata, then replace
-the shared source glob with included per-app build descriptions.
+The next cleanup step is to create `nio-core-apps` and `nio-config`, then move
+the staged source trees out rather than letting this repository become another
+mixed product bucket.
 
 ## BBC Boot Disk
 
