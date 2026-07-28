@@ -3,6 +3,7 @@ LD := wcl
 
 CFLAGS += -0 -bt=dos -os -ms -s -q
 CFLAGS += -i=$(APP_INCLUDE_DIR)
+CFLAGS += -i=$(CONFIG_NIO_INCLUDE_DIR)
 CFLAGS += -i=$(PLATFORM_INCLUDE_DIR)
 CFLAGS += -i=$(NIO_INCLUDE_DIR)
 CFLAGS += -i=msdos/include

@@ -15,7 +15,7 @@ make TARGET=msdos boot-disk
 Outputs are written under `build/<target>/disk/boot/`:
 
 - Atari: `autorun.atr`
-- BBC: `autorun.ssd`
+- BBC: `FN-BOOT.ssd`
 - MS-DOS: `autorun.img`
 
 To copy the generated image into the matching FujiNet-NIO boot asset folders:
@@ -26,6 +26,10 @@ make TARGET=atari install-boot-disk FUJINET_NIO=../fujinet-nio
 
 This installs to `distfiles/esp32-data/boot/<platform>/`, which is the
 filesystem input packaged by `fujinet-nio` when running `./build.sh -f`.
+
+BBC is intentionally limited to app-owned files (`CONFNIO`, `CLOCK`, and
+`KEYCODE`). The full BBC product boot disk is assembled by the workspace/fn-rom
+flow using the smaller ASM transient utilities from `fn-rom`.
 
 Files under `files/` are not copied just because they exist. List every disk
 entry in the platform YAML manifest:

@@ -2,22 +2,12 @@
 # Relative paths are resolved from the nio-apps repository root.
 
 apps:
-  - src: ${BOOT_DISK_BIN}/fhost
-    name: FHOST
-  - src: ${BOOT_DISK_BIN}/fls
-    name: FLS
-  - src: ${BOOT_DISK_BIN}/fin
-    name: FIN
-  - src: ${BOOT_DISK_BIN}/fmount
-    name: FMOUNT
-  - src: ${BOOT_DISK_BIN}/fdrive
-    name: FDRIVE
-  - src: ${BOOT_DISK_BIN}/fapp
-    name: FAPP
   - src: ${BOOT_DISK_BIN}/clock
     name: CLOCK
   - src: ${BOOT_DISK_BIN}/config-nio
     name: CONFNIO
+  - src: bbc/assets/config-nio-bbc/CONFNIO.inf
+    name: CONFNIO.inf
   - src: ${BOOT_DISK_BIN}/keycode
     name: KEYCODE
   - src: bbc/assets/KEYCODE.inf

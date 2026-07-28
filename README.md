@@ -7,17 +7,22 @@ Anything serious will move out of this repo. This repo's purpose is a platform f
 ## Layout
 
 - `apps/common/` contains shared command applications.
+- `apps/config-nio/` contains the product configuration application and its
+  app-owned shared/platform code.
 - `src/common/` contains shared app support code.
 - `src/platform/<platform>/` contains platform backends and any platform-tuned
   code.
 - `makefiles/` contains the target/compiler/disk build fragments.
 - `msdos/` contains MS-DOS-only tools, scripts, and compatibility entry points.
 
-The shared `F*` applications currently build for:
+The portable C `F*` applications currently build for:
 
+- `linux`, using GCC and the Linux NIO backend.
 - `msdos`, using Open Watcom and the MS-DOS IOCTL backend.
 - `atari`, using cc65 and the Atari FujiBus backend.
-- `bbc` and `bbc-clib`, using cc65 and the BBC Tube/serial backends.
+
+BBC product builds use the smaller `fn-rom` ASM transient utilities for `F*`
+commands instead. See `docs/ARCHITECTURE.md`.
 
 ## Build
 
@@ -46,9 +51,14 @@ Outputs are written to `build/<target>/bin/`:
 - Atari: `.xex`
 - BBC: extensionless program binaries
 
-Common apps are discovered from `apps/common/*.c`. MS-DOS-specific apps are
-discovered from `msdos/apps/*.c`. Add target-specific exclusions in
-`makefiles/build.mk` only when a source file cannot build for that target.
+Common apps are still discovered from `apps/common/*.c`. MS-DOS-specific apps
+are discovered from `msdos/apps/*.c`. `config-nio` is intentionally outside
+that shared app bucket under `apps/config-nio/`, so its source tree can move to
+its own repository without untangling generic app code first.
+
+Future app moves should prefer an app-owned directory with its own small build
+description over adding more top-level source files that are resolved only by
+repository-wide makefile rules.
 
 The build invokes `fujinet-nio-lib` for the target-specific raw NIO library
 when needed.
@@ -153,7 +163,7 @@ Generated images are written under `build/<target>/disk/boot/`:
 
 - MS-DOS: `autorun.img`
 - Atari: `autorun.atr`
-- BBC: `autorun.ssd`
+- BBC: `FN-BOOT.ssd`
 
 To seed a neighboring `fujinet-nio` checkout:
 
@@ -163,3 +173,7 @@ make TARGET=atari install-boot-disk FUJINET_NIO=../fujinet-nio
 
 That installs to `distfiles/esp32-data/boot/<platform>/`, which is the
 filesystem input packaged by `fujinet-nio` when running `./build.sh -f`.
+
+For BBC, this repository's boot image contains only `CONFNIO`, `CLOCK`, and
+`KEYCODE`. The product boot disk combines those app assets with the smaller
+`fn-rom` ASM transient utilities.

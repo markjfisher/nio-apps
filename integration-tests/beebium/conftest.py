@@ -144,13 +144,13 @@ def real_fujinet_config_nio(pytestconfig):
         extra_config=(
             "boot:\n"
             "  mode: config\n"
-            "  config_uri: host:/boot/bbc/autorun.ssd\n"
+            "  config_uri: host:/boot/bbc/FN-BOOT.ssd\n"
             "  readonly: true\n"
         ),
     )
     data_root = fn.run_dir / "fujinet-data"
     boot_src = Path(os.environ["FUJINET_NIO_HOME"]) / "distfiles" / "boot"
-    if not (boot_src / "bbc" / "autorun.ssd").is_file():
+    if not (boot_src / "bbc" / "FN-BOOT.ssd").is_file():
         pytest.skip(f"BBC FujiNet utility disk not found under {boot_src}")
     shutil.copytree(boot_src, data_root / "boot", dirs_exist_ok=True)
 
@@ -176,7 +176,7 @@ def real_fujinet_config_nio(pytestconfig):
         "empty.ssd",
         "fcs.ssd",
         "fish",
-        "fn-utls.ssd",
+        "fn-boot.ssd",
         "fs.ssd",
         "fstest.ssd",
         "impetus_mode7.ssd",
