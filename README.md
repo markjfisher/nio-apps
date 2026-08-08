@@ -34,6 +34,7 @@ Build one target:
 make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
 make TARGET=atari FUJINET_NIO_LIB=../fujinet-nio-lib
 make TARGET=linux FUJINET_NIO_LIB=../fujinet-nio-lib
+make TARGET=amiga FUJINET_NIO_LIB=../fujinet-nio-lib
 ```
 
 Outputs are written to `build/<target>/bin/`:
@@ -41,9 +42,19 @@ Outputs are written to `build/<target>/bin/`:
 - MS-DOS: `.exe`
 - Atari: `.xex`
 - BBC: extensionless program binaries
+- Amiga: extensionless AmigaOS executables
 
 Portable test apps are discovered from `apps/test/*.c`. MS-DOS-specific
 diagnostic apps are discovered from `msdos/apps/*.c`.
+
+`wifitest` exercises Wi-Fi status, configuration, and scan calls using a
+small caller-owned scan buffer. It is intentionally read-only, so it can be
+used as a smoke test without changing the adapter configuration.
+
+The Amiga target uses `serial.device` through `fujinet-nio-lib`. Its `fnctl`
+compatibility state is persisted through FujiNet's app-store service because
+Amiga has no FujiNet DOS driver state interface; FujiBus calls themselves use
+the normal library transport.
 
 Boot disks are no longer owned here. Core utility boot disks belong to
 `../nio-core-apps`; config disks/stages belong to `../nio-config`.
