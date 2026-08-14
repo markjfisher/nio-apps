@@ -32,7 +32,7 @@ PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
 
-STANDALONE_PROGRAMS := astest clock fhttpbin irqmon
+STANDALONE_PROGRAMS := astest clock fhttpbin inhibitpoc irqmon
 NO_NIO_LIB_PROGRAMS := irqmon
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
