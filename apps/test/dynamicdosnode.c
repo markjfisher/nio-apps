@@ -135,6 +135,100 @@ static void print_node(const char *phase, const struct DeviceNode *node)
            (unsigned long)environment->de_BootBlocks);
 }
 
+static int action_die_probe(void)
+{
+    struct DosList *list;
+    struct DosList *entry;
+    struct MsgPort *task;
+    LONG result;
+    LONG ioerr;
+    int attempt;
+
+    list = LockDosList(LDF_READ | LDF_DEVICES);
+    if (list == NULL) {
+        puts("DIE pre_lock=failed");
+        return 20;
+    }
+    entry = FindDosEntry(list, dos_name, LDF_DEVICES);
+    task = entry != NULL ? entry->dol_Task : NULL;
+    printf("DIE pre_present=%d pre_task=%08lx\n", entry != NULL,
+           (unsigned long)task);
+    UnLockDosList(LDF_READ | LDF_DEVICES);
+    if (task == NULL)
+        return 20;
+
+    result = DoPkt(task, ACTION_DIE, 0, 0, 0, 0, 0);
+    ioerr = IoErr();
+    printf("DIE action_result=%ld ioerr=%ld\n", (long)result, (long)ioerr);
+
+    for (attempt = 0; attempt < 20; ++attempt) {
+        struct MsgPort *current_task = NULL;
+        int present = 0;
+
+        list = LockDosList(LDF_READ | LDF_DEVICES);
+        if (list == NULL) {
+            puts("DIE poll_lock=failed");
+            return 20;
+        }
+        entry = FindDosEntry(list, dos_name, LDF_DEVICES);
+        if (entry != NULL) {
+            present = 1;
+            current_task = entry->dol_Task;
+        }
+        printf("DIE poll=%d present=%d task=%08lx\n", attempt, present,
+               (unsigned long)current_task);
+        UnLockDosList(LDF_READ | LDF_DEVICES);
+        if (!present || current_task == NULL)
+            break;
+        Delay(1);
+    }
+    return 0;
+}
+
+static int switch_to_hd(void)
+{
+    struct DosList *list = LockDosList(LDF_READ | LDF_DEVICES);
+    struct DosList *entry;
+    struct FileSysStartupMsg *startup;
+    struct DosEnvec *env;
+
+    if (list == NULL)
+        return 20;
+    entry = FindDosEntry(list, dos_name, LDF_DEVICES);
+    if (entry == NULL || entry->dol_Task != NULL ||
+        entry->dol_misc.dol_handler.dol_Startup == 0) {
+        puts("HD_UPDATE inactive=0");
+        UnLockDosList(LDF_READ | LDF_DEVICES);
+        return 20;
+    }
+    startup = (struct FileSysStartupMsg *)BADDR(
+        entry->dol_misc.dol_handler.dol_Startup);
+    env = (struct DosEnvec *)BADDR(startup->fssm_Environ);
+    if (env == NULL) {
+        UnLockDosList(LDF_READ | LDF_DEVICES);
+        return 20;
+    }
+    env->de_Surfaces = 2;
+    env->de_SectorPerBlock = 1;
+    env->de_BlocksPerTrack = 22;
+    env->de_LowCyl = 0;
+    env->de_HighCyl = 79;
+    env->de_DosType = FUJINET_AMIGA_DOS_OFS;
+    printf("HD_UPDATE inactive=1 task=00000000 table=%lu sizeBlock=%lu "
+           "surfaces=%lu sectorPerBlock=%lu blocksPerTrack=%lu lowCyl=%lu "
+           "highCyl=%lu dosType=%08lx\n",
+           (unsigned long)env->de_TableSize,
+           (unsigned long)env->de_SizeBlock,
+           (unsigned long)env->de_Surfaces,
+           (unsigned long)env->de_SectorPerBlock,
+           (unsigned long)env->de_BlocksPerTrack,
+           (unsigned long)env->de_LowCyl,
+           (unsigned long)env->de_HighCyl,
+           (unsigned long)env->de_DosType);
+    UnLockDosList(LDF_READ | LDF_DEVICES);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     fujinet_disk_dos_envec_t source;
@@ -148,6 +242,16 @@ int main(int argc, char **argv)
     }
 
     (void)argc;
+    if (argc > 1 && strcmp(argv[1], "--die") == 0) {
+        int result = action_die_probe();
+        CloseLibrary((struct Library *)ExpansionBase);
+        return result;
+    }
+    if (argc > 1 && strcmp(argv[1], "--switch-hd") == 0) {
+        int result = switch_to_hd();
+        CloseLibrary((struct Library *)ExpansionBase);
+        return result;
+    }
     (void)argv;
 
     build_envec(&source);

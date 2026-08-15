@@ -4,6 +4,7 @@
 #include <proto/dos.h>
 
 #include <stdio.h>
+#include <string.h>
 
 static void print_bstr(BSTR bstr)
 {
