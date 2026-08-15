@@ -22,10 +22,10 @@ DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 APP_SRCS := $(sort $(wildcard $(APP_DIR)/*.c))
 PROGRAMS_ALL := $(basename $(notdir $(APP_SRCS)))
-PROGRAMS_EXCLUDE_msdos := fsioraw
-PROGRAMS_EXCLUDE_atari :=
-PROGRAMS_EXCLUDE_bbc := fsioraw
-PROGRAMS_EXCLUDE_bbc-clib := fsioraw
+PROGRAMS_EXCLUDE_msdos := fsioraw dynamicdosnode
+PROGRAMS_EXCLUDE_atari := dynamicdosnode
+PROGRAMS_EXCLUDE_bbc := fsioraw dynamicdosnode
+PROGRAMS_EXCLUDE_bbc-clib := fsioraw dynamicdosnode
 PROGRAMS_EXCLUDE_linux :=
 PROGRAMS_EXCLUDE := $(PROGRAMS_EXCLUDE_$(TARGET))
 PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))

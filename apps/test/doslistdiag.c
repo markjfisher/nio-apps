@@ -26,6 +26,20 @@ static void print_entry(const char *group, struct DosList *entry)
     print_bstr(entry->dol_Name);
     printf(" type=%ld task=%08lx\n", (long)entry->dol_Type,
            (unsigned long)entry->dol_Task);
+    if (entry->dol_Type == DLT_DEVICE) {
+        printf("DEVICE_FIELDS name=");
+        print_bstr(entry->dol_Name);
+        printf(" handler=%08lx stack=%ld priority=%ld globVec=%08lx "
+               "startup=%08lx task=%08lx handler_decoded=",
+               (unsigned long)entry->dol_misc.dol_handler.dol_Handler,
+               (long)entry->dol_misc.dol_handler.dol_StackSize,
+               (long)entry->dol_misc.dol_handler.dol_Priority,
+               (unsigned long)entry->dol_misc.dol_handler.dol_GlobVec,
+               (unsigned long)entry->dol_misc.dol_handler.dol_Startup,
+               (unsigned long)entry->dol_Task);
+        print_bstr(entry->dol_misc.dol_handler.dol_Handler);
+        putchar('\n');
+    }
 }
 
 static void list_entries(const char *group, ULONG flags)
@@ -136,5 +150,6 @@ int main(void)
     find_entry("DN0", LDF_ALL);
     find_entry("DN0:", LDF_ALL);
     print_dos_envec("DN0");
+    print_dos_envec("DY0");
     return 0;
 }
