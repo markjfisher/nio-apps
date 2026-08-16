@@ -309,26 +309,7 @@ int main(int argc, char **argv)
     packet[1] = (ULONG)exec_name;
     packet[2] = 0;
     packet[3] = 0;
-    packet[4 + DE_TABLESIZE] = source.de_TableSize;
-    packet[4 + DE_SIZEBLOCK] = source.de_SizeBlock;
-    packet[4 + DE_SECORG] = source.de_SecOrg;
-    packet[4 + DE_NUMHEADS] = source.de_Surfaces;
-    packet[4 + DE_SECSPERBLK] = source.de_SectorPerBlock;
-    packet[4 + DE_BLKSPERTRACK] = source.de_BlocksPerTrack;
-    packet[4 + DE_RESERVEDBLKS] = source.de_Reserved;
-    packet[4 + DE_PREFAC] = source.de_PreAlloc;
-    packet[4 + DE_INTERLEAVE] = source.de_Interleave;
-    packet[4 + DE_LOWCYL] = source.de_LowCyl;
-    packet[4 + DE_UPPERCYL] = source.de_HighCyl;
-    packet[4 + DE_NUMBUFFERS] = source.de_NumBuffers;
-    packet[4 + DE_BUFMEMTYPE] = source.de_BufMemType;
-    packet[4 + DE_MAXTRANSFER] = source.de_MaxTransfer;
-    packet[4 + DE_MASK] = source.de_Mask;
-    packet[4 + DE_BOOTPRI] = (ULONG)source.de_BootPri;
-    packet[4 + DE_DOSTYPE] = source.de_DosType;
-    packet[4 + DE_BAUD] = source.de_Baud;
-    packet[4 + DE_CONTROL] = source.de_Control;
-    packet[4 + DE_BOOTBLOCKS] = source.de_BootBlocks;
+    fujinet_disk_serialize_dos_envec(&source, packet + 4);
 
     node = MakeDosNode(packet);
     if (node == NULL) {
