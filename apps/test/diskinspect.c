@@ -1,8 +1,5 @@
-#include "../../../fujinet-nio-driver/amiga/include/fujinet_disk_device.h"
-#include "../../../fujinet-nio-driver/amiga/include/fujinet_disk_driver.h"
-#include "../../../fujinet-nio-driver/amiga/include/fujinet_disk_filesystem.h"
-#include "../../../fujinet-nio-driver/amiga/common/fujinet_disk_media_profile.c"
-#include "../../../fujinet-nio-driver/amiga/common/fujinet_disk_filesystem.c"
+#include <fujinet-amiga-disk/device.h>
+#include <fujinet-amiga-disk/support.h>
 
 #include <devices/trackdisk.h>
 #include <exec/io.h>

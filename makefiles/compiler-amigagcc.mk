@@ -6,7 +6,7 @@ CFLAGS += -I$(APP_INCLUDE_DIR)
 CFLAGS += -I$(CONFIG_NIO_INCLUDE_DIR)
 CFLAGS += -I$(PLATFORM_INCLUDE_DIR)
 CFLAGS += -I$(NIO_INCLUDE_DIR)
-CFLAGS += -I../fujinet-nio-driver/amiga/include
+CFLAGS += -I../fujinet-nio-driver/build/amiga/include
 CFLAGS += -DFNSVC_LIST_MAX_PAYLOAD=$(FNSVC_LIST_MAX_PAYLOAD)
 
 # clib2 keeps the application self-contained.  The default newlib startup
@@ -14,11 +14,12 @@ CFLAGS += -DFNSVC_LIST_MAX_PAYLOAD=$(FNSVC_LIST_MAX_PAYLOAD)
 # library and is not present on the minimal OS 3.2 module disks used by the
 # test images.
 LDFLAGS += -mcpu=68000 -msoft-float -mcrt=clib2
+LDFLAGS += -L../fujinet-nio-driver/build/amiga/lib -lfujinet-amiga-disk
 
 define compile_c
 	$(CC) $(CFLAGS) -MMD -MF $(@:.o=.d) -c -o $@ $<
 endef
 
 define link_program
-	$(CC) $(LDFLAGS) $(EXTRA_PROGRAM_LDFLAGS) -o $@ $^ -lamiga
+	$(CC) -o $@ $^ $(LDFLAGS) $(EXTRA_PROGRAM_LDFLAGS) -lamiga
 endef

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../../fujinet-nio-driver/amiga/include/fujinet_disk_dos_envec.h"
+#include <fujinet-amiga-disk/support.h>
 
 struct ExpansionBase *ExpansionBase;
 
