@@ -229,6 +229,50 @@ static int switch_to_hd(void)
     return 0;
 }
 
+static int switch_to_dd(void)
+{
+    struct DosList *list = LockDosList(LDF_READ | LDF_DEVICES);
+    struct DosList *entry;
+    struct FileSysStartupMsg *startup;
+    struct DosEnvec *env;
+
+    if (list == NULL)
+        return 20;
+    entry = FindDosEntry(list, dos_name, LDF_DEVICES);
+    if (entry == NULL || entry->dol_Task != NULL ||
+        entry->dol_misc.dol_handler.dol_Startup == 0) {
+        puts("DD_UPDATE inactive=0");
+        UnLockDosList(LDF_READ | LDF_DEVICES);
+        return 20;
+    }
+    startup = (struct FileSysStartupMsg *)BADDR(
+        entry->dol_misc.dol_handler.dol_Startup);
+    env = (struct DosEnvec *)BADDR(startup->fssm_Environ);
+    if (env == NULL) {
+        UnLockDosList(LDF_READ | LDF_DEVICES);
+        return 20;
+    }
+    env->de_Surfaces = 2;
+    env->de_SectorPerBlock = 1;
+    env->de_BlocksPerTrack = 11;
+    env->de_LowCyl = 0;
+    env->de_HighCyl = 79;
+    env->de_DosType = FUJINET_AMIGA_DOS_OFS;
+    printf("DD_UPDATE inactive=1 task=00000000 table=%lu sizeBlock=%lu "
+           "surfaces=%lu sectorPerBlock=%lu blocksPerTrack=%lu lowCyl=%lu "
+           "highCyl=%lu dosType=%08lx\n",
+           (unsigned long)env->de_TableSize,
+           (unsigned long)env->de_SizeBlock,
+           (unsigned long)env->de_Surfaces,
+           (unsigned long)env->de_SectorPerBlock,
+           (unsigned long)env->de_BlocksPerTrack,
+           (unsigned long)env->de_LowCyl,
+           (unsigned long)env->de_HighCyl,
+           (unsigned long)env->de_DosType);
+    UnLockDosList(LDF_READ | LDF_DEVICES);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     fujinet_disk_dos_envec_t source;
@@ -249,6 +293,11 @@ int main(int argc, char **argv)
     }
     if (argc > 1 && strcmp(argv[1], "--switch-hd") == 0) {
         int result = switch_to_hd();
+        CloseLibrary((struct Library *)ExpansionBase);
+        return result;
+    }
+    if (argc > 1 && strcmp(argv[1], "--switch-dd") == 0) {
+        int result = switch_to_dd();
         CloseLibrary((struct Library *)ExpansionBase);
         return result;
     }
