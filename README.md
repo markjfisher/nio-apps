@@ -51,7 +51,7 @@ diagnostic apps are discovered from `msdos/apps/*.c`.
 small caller-owned scan buffer. It is intentionally read-only, so it can be
 used as a smoke test without changing the adapter configuration.
 
-The Amiga target uses `serial.device` through `fujinet-nio-lib`. Its `fnctl`
+The Amiga target uses `fujinet-nio.device` through `fujinet-nio-lib`. Its `fnctl`
 compatibility state is persisted through FujiNet's app-store service because
 Amiga has no FujiNet DOS driver state interface; FujiBus calls themselves use
 the normal library transport.
