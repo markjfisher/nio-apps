@@ -90,4 +90,4 @@ keys, then deletes `beta` and leaves `alpha` behind for filesystem inspection.
 with a hand-written m68k implementation over several buffer sizes and reports
 EClock ticks, ticks per iteration, and approximate microseconds per iteration.
 Each result is checked against the C checksum before it is printed. Build it
-with `make TARGET=amiga checksumbench`.
+with `make -f makefiles/build.mk TARGET=amiga checksumbench`.
