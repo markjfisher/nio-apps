@@ -41,13 +41,13 @@ static int result_ok(const char *name, uint8_t result)
 
 int main(void)
 {
-    fn_wifi_config_t config;
-    fn_wifi_config_update_t update;
-    fn_wifi_status_t status;
-    fn_wifi_scan_record_t records[SCAN_CAPACITY];
-    uint8_t response[SCAN_RESPONSE_CAPACITY];
-    uint8_t count = 0;
-    uint8_t more = 0;
+    static fn_wifi_config_t config;
+    static fn_wifi_config_update_t update;
+    static fn_wifi_status_t status;
+    static fn_wifi_scan_record_t records[SCAN_CAPACITY];
+    static uint8_t response[SCAN_RESPONSE_CAPACITY];
+    static uint8_t count;
+    static uint8_t more;
     static const char *ssid = "amiga-e2e-network";
     static const char *bssid = "02:04:06:08:0A:0C";
     static const char *password = "amiga-e2e-password";

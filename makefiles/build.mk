@@ -23,15 +23,16 @@ DISK_DIR := $(TARGET_BUILD_DIR)/disk
 APP_SRCS := $(sort $(wildcard $(APP_DIR)/*.c))
 APP_ASM_SRCS := $(sort $(wildcard $(APP_DIR)/*.s))
 PROGRAMS_ALL := $(basename $(notdir $(APP_SRCS)))
-PROGRAMS_EXCLUDE_msdos := fsioraw dynamicdosnode
-PROGRAMS_EXCLUDE_atari := dynamicdosnode
-PROGRAMS_EXCLUDE_bbc := fsioraw dynamicdosnode
-PROGRAMS_EXCLUDE_bbc-clib := fsioraw dynamicdosnode
-PROGRAMS_EXCLUDE_linux :=
+AMIGA_PROGRAMS := checksumbench devopencnt diskinspect doslistdiag \
+                  dynamicdosnode fmount_inhibit_exp_a fmount_inhibit_exp_b \
+                  inhibitpoc sizetest
+PROGRAMS_EXCLUDE_msdos := fsioraw $(AMIGA_PROGRAMS)
+PROGRAMS_EXCLUDE_atari := $(AMIGA_PROGRAMS)
+PROGRAMS_EXCLUDE_bbc := fsioraw $(AMIGA_PROGRAMS)
+PROGRAMS_EXCLUDE_bbc-clib := fsioraw $(AMIGA_PROGRAMS)
+PROGRAMS_EXCLUDE_linux := $(AMIGA_PROGRAMS) fsioraw
+PROGRAMS_EXCLUDE_amiga := fsioraw
 PROGRAMS_EXCLUDE := $(PROGRAMS_EXCLUDE_$(TARGET))
-ifneq ($(TARGET),amiga)
-PROGRAMS_EXCLUDE += checksumbench
-endif
 PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
