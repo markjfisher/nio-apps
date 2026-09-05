@@ -21,6 +21,7 @@ BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
 
 APP_SRCS := $(sort $(wildcard $(APP_DIR)/*.c))
+APP_ASM_SRCS := $(sort $(wildcard $(APP_DIR)/*.s))
 PROGRAMS_ALL := $(basename $(notdir $(APP_SRCS)))
 PROGRAMS_EXCLUDE_msdos := fsioraw dynamicdosnode
 PROGRAMS_EXCLUDE_atari := dynamicdosnode
@@ -28,6 +29,9 @@ PROGRAMS_EXCLUDE_bbc := fsioraw dynamicdosnode
 PROGRAMS_EXCLUDE_bbc-clib := fsioraw dynamicdosnode
 PROGRAMS_EXCLUDE_linux :=
 PROGRAMS_EXCLUDE := $(PROGRAMS_EXCLUDE_$(TARGET))
+ifneq ($(TARGET),amiga)
+PROGRAMS_EXCLUDE += checksumbench
+endif
 PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
@@ -37,10 +41,12 @@ NO_NIO_LIB_PROGRAMS := irqmon
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(APP_SRCS))
+APP_ASM_OBJS := $(patsubst %.s,$(OBJ_DIR)/%.o,$(APP_ASM_SRCS))
+EXTRA_APP_OBJS_checksumbench := $(OBJ_DIR)/$(APP_DIR)/checksumbench_asm.o
 MSDOS_LIB_OBJS := $(if $(filter msdos,$(TARGET)),$(OBJ_DIR)/msdos/lib/nio.o)
 MSDOS_APP_OBJS := $(MSDOS_PROGRAMS:%=$(OBJ_DIR)/msdos/apps/%.o)
 PROGRAM_BINS := $(PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT)) $(MSDOS_PROGRAMS:%=$(BIN_DIR)/%$(PROGRAM_EXT))
-DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d) $(MSDOS_LIB_OBJS:.o=.d) $(MSDOS_APP_OBJS:.o=.d)
+DEPENDS := $(COMMON_OBJS:.o=.d) $(APP_OBJS:.o=.d) $(APP_ASM_OBJS:.o=.d) $(MSDOS_LIB_OBJS:.o=.d) $(MSDOS_APP_OBJS:.o=.d)
 
 ifeq ($(COMPILER_FAMILY),wcc)
 include makefiles/compiler-wcc.mk
@@ -76,12 +82,18 @@ $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(call compile_c)
 
+ifeq ($(COMPILER_FAMILY),amigagcc)
+$(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	m68k-amigaos-as -mcpu=68000 -o $@ $<
+else
 $(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	ca65 -t $(TARGET) $(ASMFLAGS) -I /home/markf/dev/nio/fujinet-nio-workspace/repos/cc65/libsrc/bbc -o $@ $<
+endif
 
 define APP_PROGRAM_RULE
-$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
+$(BIN_DIR)/$(1)$(PROGRAM_EXT): $(OBJ_DIR)/$(APP_DIR)/$(1).o $$(EXTRA_APP_OBJS_$(1)) $$(if $$(filter $(1),$$(STANDALONE_PROGRAMS)),,$$(COMMON_OBJS)) $$(if $$(filter $(1),$$(NO_NIO_LIB_PROGRAMS)),,$$(NIO_LIB_FILE)) | $(BIN_DIR)
 	$$(call link_program)
 endef
 

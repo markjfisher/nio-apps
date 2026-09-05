@@ -83,3 +83,11 @@ interactive URL prompt is wanted for a manual target build.
 `astest` performs fixed app-store CRUD checks against namespace `nio.astest`.
 It writes and verifies `alpha`, writes and verifies chunked `beta`, lists both
 keys, then deletes `beta` and leaves `alpha` behind for filesystem inspection.
+
+## Amiga Checksum Benchmark
+
+`checksumbench` is Amiga-only. It compares the shared C `fn_calc_checksum()`
+with a hand-written m68k implementation over several buffer sizes and reports
+EClock ticks, ticks per iteration, and approximate microseconds per iteration.
+Each result is checked against the C checksum before it is printed. Build it
+with `make TARGET=amiga checksumbench`.
