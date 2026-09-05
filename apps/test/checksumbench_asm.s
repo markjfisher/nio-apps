@@ -1,44 +1,331 @@
-; # fn_calc_checksum_asm(const uint8_t *data, uint16_t len)
-; #
-; # Amiga m68k C interop: arguments occupy four-byte stack slots. Immediately
-; # after JSR, 4(sp) is the data pointer; the uint16_t length is zero-extended
-; # into the slot at 8(sp), with its low word at 10(sp). The uint8_t result is
-; # returned in the low byte of D0.
-; #
-; # D0, D1, and A0 are caller-saved and are used here for the accumulator, byte
-; # count, and data pointer. D2 is callee-saved by the Amiga C ABI, so it must be
-; # saved and restored around this routine or the C caller's state may be
-; # corrupted.
-; #
-; # For each byte, add it to the 16-bit accumulator, then fold the high byte back
-; # into the low byte. This is the same end-around carry order used by the C
-; # fn_checksum_fold() implementation; changing the order changes the checksum.
-
         .globl  _fn_calc_checksum_asm
+        .globl  _fn_calc_checksum_asm_branch
+
+;# uint8_t fn_calc_checksum_asm(const uint8_t *data, uint16_t len)
+;#
+;# Amiga m68k C calling convention:
+;#
+;#   4(sp)   = data pointer
+;#   8(sp)   = 32-bit stack slot containing len
+;#             uint16_t len is in the low word, so read from 10(sp)
+;#
+;# Return value:
+;#   D0 = checksum
+;#
+;# Algorithm:
+;#
+;#   chk = 0
+;#   for each byte:
+;#       sum = chk + byte
+;#       chk = (sum & 0xff) + (sum >> 8)
+;#
+;# Since chk and byte are each 0..255:
+;#
+;#       sum <= 0xff + 0xff = 0x1fe
+;#
+;# therefore sum >> 8 can only ever be 0 or 1.
+;#
+;# So the operation is equivalent to:
+;#
+;#       chk = chk + byte + carry
+;#
+;# This maps very naturally to ADD.B followed by ADDX.B.
+
 _fn_calc_checksum_asm:
-        ; # Fetch arguments before changing SP. AT&T syntax has source first and
-        ; # prefixes registers with %.
+
+        ;# A0 = pointer to input data.
+        ;#
+        ;# m68k addressing is very pleasant here:
+        ;#
+        ;#   4(%sp)
+        ;#
+        ;# means "memory at SP + 4".
+        ;#
+        ;# We use MOVE.L because a pointer is 32 bits.
+        move.l  4(%sp),%a0
+
+        ;# D1.w = number of bytes.
+        ;#
+        ;# The Amiga ABI gives C arguments four-byte stack slots.
+        ;# len occupies the slot beginning at 8(sp), but because uint16_t
+        ;# is stored in the low 16 bits, its actual word is at 10(sp).
+        move.w  10(%sp),%d1
+
+
+        ;# D2 is callee-saved according to the ABI, so if we use it we must
+        ;# return it with its original value.
+        ;#
+        ;# Push D2 onto the stack.
+        ;#
+        ;# Unlike the 6502, SP is a real address register (A7), and the
+        ;# stack grows downward.
+        ;#
+        ;# "-(%sp)" is pre-decrement addressing:
+        ;#
+        ;#       SP -= 4
+        ;#       [SP] = D2
+        ;#
+        move.l  %d2,-(%sp)
+
+
+        ;# D0 will hold our checksum.
+        ;#
+        ;# MOVEQ loads a small signed 8-bit immediate into a data register
+        ;# and sign-extends it to 32 bits.
+        ;#
+        ;# MOVEQ #0,D0 is therefore a compact/fast way of clearing D0.
+        moveq   #0,%d0
+
+        ;# D2 is permanently zero.
+        ;#
+        ;# We use it below with ADDX.B so that ADDX effectively means:
+        ;#
+        ;#       D0.byte = D0.byte + 0 + X
+        ;#
+        ;# i.e. add the carry from the previous addition.
+        moveq   #0,%d2
+
+
+        ;# Handle len == 0.
+        ;#
+        ;# TST.W conceptually performs:
+        ;#
+        ;#       D1 & D1
+        ;#
+        ;# without storing a result. It just updates the condition codes.
+        ;#
+        ;# Z becomes set if D1.w == 0.
+        tst.w   %d1
+
+        ;# BEQ = Branch if EQual, i.e. branch if Z == 1.
+        ;#
+        ;# ".s" requests the short branch encoding.
+        beq.s   .done
+
+
+        ;# DBRA is slightly unusual compared with 6502 loops.
+        ;#
+        ;# It does:
+        ;#
+        ;#       D1.w--
+        ;#       if D1.w != 0xffff:
+        ;#           branch
+        ;#
+        ;# So for exactly N iterations, initialise the counter to N-1.
+        ;#
+        ;# Example len = 3:
+        ;#
+        ;#       start D1 = 2
+        ;#
+        ;# after iteration 1: DBRA -> 1, branch
+        ;# after iteration 2: DBRA -> 0, branch
+        ;# after iteration 3: DBRA -> ffff, stop
+        ;#
+        subq.w  #1,%d1
+
+
+.loop:
+
+        ;# Add the next data byte to the low byte of D0.
+        ;#
+        ;# "(%a0)+" is post-increment addressing:
+        ;#
+        ;#       use byte at [A0]
+        ;#       then increment A0
+        ;#
+        ;# Because the operation size is .B, A0 advances by one byte.
+        ;#
+        ;# This is the m68k equivalent of the basic idea behind:
+        ;#
+        ;#       lda (ptr),y
+        ;#
+        ;# followed by advancing ptr.
+        ;#
+        ;# ADD.B affects the carry and extend flags.
+        ;#
+        ;# Suppose:
+        ;#
+        ;#       D0.b = $f0
+        ;#       [A0] = $30
+        ;#
+        ;# Then:
+        ;#
+        ;#       $f0 + $30 = $120
+        ;#
+        ;# ADD.B stores only the byte result:
+        ;#
+        ;#       D0.b = $20
+        ;#
+        ;# and sets X = 1 because there was a carry out of bit 7.
+        ;#
+        add.b   (%a0)+,%d0
+
+
+        ;# ADDX = ADD with eXtend.
+        ;#
+        ;# For byte operands:
+        ;#
+        ;#       destination =
+        ;#           destination + source + X
+        ;#
+        ;# D2 is zero, so:
+        ;#
+        ;#       D0.b = D0.b + 0 + X
+        ;#
+        ;# Therefore the carry generated by the previous ADD.B gets folded
+        ;# back into the checksum.
+        ;#
+        ;# Continuing the example:
+        ;#
+        ;#       D0.b = $20
+        ;#       X    = 1
+        ;#
+        ;# gives:
+        ;#
+        ;#       $20 + 0 + 1 = $21
+        ;#
+        ;# Which is exactly:
+        ;#
+        ;#       ($120 & $ff) + ($120 >> 8)
+        ;#
+        ;#       $20 + $01 = $21
+        ;#
+        ;# This is directly analogous to the 6502:
+        ;#
+        ;#       clc
+        ;#       adc checksum
+        ;#       adc #0
+        ;#
+        ;# except the 68k has a dedicated "add with previous carry" form.
+        addx.b  %d2,%d0
+
+
+        ;# DBRA = Decrement and BRAnch.
+        ;#
+        ;# Only the low 16 bits of D1 are used.
+        ;#
+        ;# It decrements D1.w and loops unless the result becomes $ffff.
+        dbra    %d1,.loop
+
+
+.done:
+
+        ;# Restore the caller's original D2.
+        ;#
+        ;# "(%sp)+" is post-increment addressing:
+        ;#
+        ;#       D2 = [SP]
+        ;#       SP += 4
+        ;#
+        ;# so this undoes:
+        ;#
+        ;#       move.l %d2,-(%sp)
+        ;#
+        move.l  (%sp)+,%d2
+
+        ;# D0 contains the return value.
+        ;#
+        ;# RTS pops the return PC from the stack and resumes the caller.
+        rts
+
+
+;# uint8_t fn_calc_checksum_asm_branch(const uint8_t *data, uint16_t len)
+;#
+;# Same checksum as:
+;#
+;#   chk = 0;
+;#   for (i = 0; i < len; i++) {
+;#       sum = chk + data[i];
+;#       chk = (sum & 0xff) + (sum >> 8);
+;#   }
+;#
+;# Since chk and data[i] are both 0..255, sum is at most 0x1fe.
+;# Therefore the high byte is only ever 0 or 1.
+;#
+;# This version handles that carry explicitly with BCC/ADDQ rather than ADDX.
+;#
+;# Inner loop:
+;#
+;#       add.b   (%a0)+,%d0
+;#       bcc.s   .no_carry
+;#       addq.b  #1,%d0
+;#   .no_carry:
+;#       dbra    %d1,.loop
+;#
+;# Unlike the ADDX version, this needs no zero scratch register, so D2 is not
+;# touched and there is nothing to save/restore.
+
+_fn_calc_checksum_asm_branch:
+
+        ;# Fetch arguments.
+        ;#
+        ;# 4(sp)  = data pointer
+        ;# 10(sp) = low word of uint16_t len's four-byte stack slot
         move.l  4(%sp),%a0
         move.w  10(%sp),%d1
-        # Preserve the callee-saved scratch register used by the fold.
-        movem.l %d2,-(%sp)
-        # D0 is the 16-bit running accumulator; D1 counts remaining bytes.
+
+        ;# D0 is the checksum/result.
         moveq   #0,%d0
+
+        ;# A zero-length input returns checksum 0 immediately.
         tst.w   %d1
-        beq.s   .done
-.loop:
-        ; # Load one unsigned byte and add it to the accumulator.
-        moveq   #0,%d2
-        move.b  (%a0)+,%d2
-        add.w   %d2,%d0
-        ; # Fold the high byte into the low byte, matching fn_checksum_fold().
-        move.w  %d0,%d2
-        lsr.w   #8,%d2
-        andi.w  #0x00ff,%d0
-        add.w   %d2,%d0
+        beq.s   .done_b
+
+        ;# DBRA performs N iterations when initialized to N-1.
         subq.w  #1,%d1
-        bne.s   .loop
-.done:
-        # Restore D2 while leaving D0 unchanged for the return.
-        movem.l (%sp)+,%d2
+
+.loop_b:
+        ;# Add the next byte into the low byte of D0.
+        ;#
+        ;# (%a0)+ means:
+        ;#
+        ;#   read from address A0
+        ;#   then advance A0 by the operand size
+        ;#
+        ;# Since this is ADD.B, A0 advances by one byte.
+        ;#
+        ;# If the byte addition exceeds 0xff, the carry flag C is set.
+        ;#
+        ;# Example:
+        ;#
+        ;#   D0.b = 0xf0
+        ;#   byte = 0x30
+        ;#
+        ;#   0xf0 + 0x30 = 0x120
+        ;#
+        ;# After ADD.B:
+        ;#
+        ;#   D0.b = 0x20
+        ;#   C     = 1
+        add.b   (%a0)+,%d0
+
+        ;# BCC = Branch if Carry Clear.
+        ;#
+        ;# If there was no carry out of the byte addition, the checksum is
+        ;# already correct and we can skip the carry fold.
+        bcc.s   .no_carry
+
+        ;# There was a carry, so fold it back into the low byte.
+        ;#
+        ;# Continuing the example:
+        ;#
+        ;#   D0.b = 0x20
+        ;#
+        ;# becomes:
+        ;#
+        ;#   D0.b = 0x21
+        ;#
+        ;# which is exactly:
+        ;#
+        ;#   (0x120 & 0xff) + (0x120 >> 8)
+        ;#
+        ;#   0x20 + 1
+        addq.b  #1,%d0
+
+.no_carry:
+        ;# Decrement the low word of D1 and branch until it becomes 0xffff.
+        dbra    %d1,.loop_b
+
+.done_b:
+        ;# D0 already contains the uint8_t result.
         rts
