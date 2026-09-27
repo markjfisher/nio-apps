@@ -16,6 +16,7 @@
 #include <string.h>
 
 #define MAX_PROCESSES 64
+#define MAX_VOLUME_LOCKS 64
 
 static struct MsgPort *device_task(const char *name)
 {
@@ -98,6 +99,71 @@ static void print_stream(const char *field, BPTR bptr, struct MsgPort *dn0,
            match_handler(handle->fh_Type, dn0, dn2));
 }
 
+/*
+ * Volume entries maintain the public chain of outstanding FileLocks.  A lock
+ * can outlive the usual process CurrentDir/HomeDir fields, so sample this
+ * handler-owned list separately rather than assuming the process scan is
+ * complete.
+ */
+static void volume_name(BSTR bptr, char *output, unsigned int capacity)
+{
+    const unsigned char *source = (const unsigned char *)BADDR(bptr);
+    unsigned int length;
+
+    if (source == NULL || capacity == 0) {
+        if (capacity != 0)
+            output[0] = '\0';
+        return;
+    }
+    length = source[0];
+    if (length >= capacity)
+        length = capacity - 1;
+    memcpy(output, source + 1, length);
+    output[length] = '\0';
+}
+
+static void print_volume_locks(struct MsgPort *dn0, struct MsgPort *dn2)
+{
+    const ULONG flags = LDF_READ | LDF_VOLUMES;
+    struct DosList *list;
+    struct DosList *entry;
+
+    list = LockDosList(flags);
+    if (list == NULL) {
+        printf("VOLUMES unavailable\n");
+        return;
+    }
+    for (entry = NextDosEntry(list, LDF_VOLUMES); entry != NULL;
+         entry = NextDosEntry(entry, LDF_VOLUMES)) {
+        BPTR lock_bptr = entry->dol_misc.dol_volume.dol_LockList;
+        char name[64];
+        unsigned int index = 0;
+
+        volume_name(entry->dol_Name, name, sizeof(name));
+        printf("VOLUME node=%08lx handler=%08lx match=%s name=%s name_bptr=%08lx lock_list=%08lx\n",
+               (unsigned long)entry, (unsigned long)entry->dol_Task,
+               match_handler(entry->dol_Task, dn0, dn2), name,
+               (unsigned long)entry->dol_Name, (unsigned long)lock_bptr);
+        while (lock_bptr != 0 && index < MAX_VOLUME_LOCKS) {
+            struct FileLock *lock = (struct FileLock *)BADDR(lock_bptr);
+
+            if (lock == NULL)
+                break;
+            printf("  VOLUME_LOCK index=%u address=%08lx next=%08lx handler=%08lx "
+                   "match=%s key=%ld volume=%08lx\n",
+                   index, (unsigned long)lock, (unsigned long)lock->fl_Link,
+                   (unsigned long)lock->fl_Task,
+                   match_handler(lock->fl_Task, dn0, dn2), (long)lock->fl_Key,
+                   (unsigned long)lock->fl_Volume);
+            lock_bptr = lock->fl_Link;
+            ++index;
+        }
+        if (lock_bptr != 0)
+            printf("  VOLUME_LOCK truncated_after=%u\n", MAX_VOLUME_LOCKS);
+    }
+    UnLockDosList(flags);
+}
+
 int main(void)
 {
     struct Task *tasks[MAX_PROCESSES];
@@ -122,5 +188,6 @@ int main(void)
         print_stream("COS", process->pr_COS, dn0, dn2);
         print_stream("CES", process->pr_CES, dn0, dn2);
     }
+    print_volume_locks(dn0, dn2);
     return 0;
 }
