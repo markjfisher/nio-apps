@@ -25,7 +25,7 @@ APP_ASM_SRCS := $(sort $(wildcard $(APP_DIR)/*.s))
 PROGRAMS_ALL := $(basename $(notdir $(APP_SRCS)))
 AMIGA_PROGRAMS := checksumbench devopencnt diskinspect doslistdiag \
                   dynamicdosnode fmount_inhibit_exp_a fmount_inhibit_exp_b \
-                  inhibitpoc sizetest
+                  inhibitpoc lockdiag sizetest
 PROGRAMS_EXCLUDE_msdos := fsioraw $(AMIGA_PROGRAMS)
 PROGRAMS_EXCLUDE_atari := $(AMIGA_PROGRAMS)
 PROGRAMS_EXCLUDE_bbc := fsioraw $(AMIGA_PROGRAMS)
@@ -37,7 +37,7 @@ PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))
 
-STANDALONE_PROGRAMS := astest clock devopencnt doslistdiag fhttpbin fmount_inhibit_exp_a fmount_inhibit_exp_b inhibitpoc irqmon
+STANDALONE_PROGRAMS := astest clock devopencnt doslistdiag fhttpbin fmount_inhibit_exp_a fmount_inhibit_exp_b inhibitpoc irqmon lockdiag
 NO_NIO_LIB_PROGRAMS := irqmon
 COMMON_SRCS := $(SRC_DIR)/common/fnsvc.c $(SRC_DIR)/platform/$(PLATFORM)/fnctl.c
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
