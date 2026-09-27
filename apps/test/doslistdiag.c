@@ -20,8 +20,27 @@ static void print_bstr(BSTR bstr)
         putchar(*++text);
 }
 
+static void print_startup_device(BSTR bptr)
+{
+    const unsigned char *text = (const unsigned char *)BADDR(bptr);
+    unsigned int length;
+    unsigned int index;
+
+    if (text == NULL) {
+        fputs("<none>", stdout);
+        return;
+    }
+    /* MakeDosNode stores the device as a counted string whose count includes
+     * its C-style terminator. */
+    length = text[0];
+    for (index = 1; index <= length && text[index] != '\0'; ++index) {
+        putchar(text[index]);
+    }
+}
+
 static void print_entry(const char *group, struct DosList *entry)
 {
+    struct FileSysStartupMsg *startup;
     fputs(group, stdout);
     fputs(" name=", stdout);
     print_bstr(entry->dol_Name);
@@ -40,6 +59,19 @@ static void print_entry(const char *group, struct DosList *entry)
                (unsigned long)entry->dol_Task);
         print_bstr(entry->dol_misc.dol_handler.dol_Handler);
         putchar('\n');
+        startup = entry->dol_misc.dol_handler.dol_Startup
+                      ? (struct FileSysStartupMsg *)BADDR(
+                            entry->dol_misc.dol_handler.dol_Startup)
+                      : NULL;
+        if (startup != NULL) {
+            printf("DEVICE_STARTUP name=");
+            print_bstr(entry->dol_Name);
+            printf(" address=%08lx unit=%lu flags=%08lx device=",
+                   (unsigned long)startup, (unsigned long)startup->fssm_Unit,
+                   (unsigned long)startup->fssm_Flags);
+            print_startup_device(startup->fssm_Device);
+            putchar('\n');
+        }
     }
 }
 
