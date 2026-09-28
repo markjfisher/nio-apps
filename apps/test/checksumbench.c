@@ -39,6 +39,15 @@ static int benchmark_clock(struct timerequest *request, benchmark_ticks_t *ticks
 #else
     struct EClockVal value;
 
+    if (TimerBase->dd_Library.lib_Version < 36) {
+        request->tr_node.io_Command = TR_GETSYSTIME;
+        if (DoIO((struct IORequest *)request) != 0)
+            return 0;
+        *ticks = (request->tr_time.tv_secs * 1000000UL) +
+                 request->tr_time.tv_micro;
+        return 1;
+    }
+
     *ticks = ((uint64_t)ReadEClock(&value) << 32) | value.ev_lo;
     return 1;
 #endif
@@ -201,7 +210,9 @@ int main(void)
         struct EClockVal eclock;
 
         TimerBase = (struct Device *)request->tr_node.io_Device;
-        frequency = ReadEClock(&eclock);
+        frequency = TimerBase->dd_Library.lib_Version >= 36
+                  ? ReadEClock(&eclock)
+                  : 1000000UL;
     }
 #endif
 
