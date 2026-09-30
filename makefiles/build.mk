@@ -3,6 +3,8 @@ SHELL := /usr/bin/env bash
 
 TARGET ?= msdos
 FUJINET_NIO_LIB ?= ../fujinet-nio-lib
+# cc65 checkout; BBC assembly includes its libsrc/bbc headers (oslib/os.inc).
+CC65_HOME ?= ../cc65
 
 include makefiles/targets.mk
 
@@ -90,7 +92,7 @@ $(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
 else
 $(OBJ_DIR)/%.o: %.s | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	ca65 -t $(TARGET) $(ASMFLAGS) -I /home/markf/dev/nio/fujinet-nio-workspace/repos/cc65/libsrc/bbc -o $@ $<
+	ca65 -t $(TARGET) $(ASMFLAGS) -I $(CC65_HOME)/libsrc/bbc -o $@ $<
 endif
 
 define APP_PROGRAM_RULE
