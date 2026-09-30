@@ -121,6 +121,7 @@ static void print_dos_envec(const char *name)
     struct DosList *entry;
     struct FileSysStartupMsg *startup;
     struct DosEnvec *environment;
+    char boot_blocks[12];
 
     list = LockDosList(LDF_READ | LDF_DEVICES);
     if (list == NULL) {
@@ -141,11 +142,17 @@ static void print_dos_envec(const char *name)
         return;
     }
     environment = (struct DosEnvec *)BADDR(startup->fssm_Environ);
+    /* de_BootBlocks lies past the end of shorter tables (WB3.1 Mount builds
+     * DE_CONTROL-sized ones), so only report it when the table includes it. */
+    if (environment->de_TableSize >= DE_BOOTBLOCKS)
+        sprintf(boot_blocks, "%lu", (unsigned long)environment->de_BootBlocks);
+    else
+        strcpy(boot_blocks, "absent");
     printf("ENV name=%s table=%lu sizeBlock=%lu secOrg=%lu surfaces=%lu "
            "sectorPerBlock=%lu blocksPerTrack=%lu reserved=%lu "
            "preAlloc=%lu interleave=%lu lowCyl=%lu highCyl=%lu "
            "buffers=%lu bufMemType=%lu maxTransfer=%08lx mask=%08lx "
-           "bootPri=%ld dosType=%08lx baud=%lu control=%lu bootBlocks=%lu "
+           "bootPri=%ld dosType=%08lx baud=%lu control=%lu bootBlocks=%s "
            "stack=%ld priority=%ld globVec=%08lx\n",
            name,
            (unsigned long)environment->de_TableSize,
@@ -167,7 +174,7 @@ static void print_dos_envec(const char *name)
            (unsigned long)environment->de_DosType,
            (unsigned long)environment->de_Baud,
            (unsigned long)environment->de_Control,
-           (unsigned long)environment->de_BootBlocks,
+           boot_blocks,
            (long)entry->dol_misc.dol_handler.dol_StackSize,
            (long)entry->dol_misc.dol_handler.dol_Priority,
            (unsigned long)entry->dol_misc.dol_handler.dol_GlobVec);
