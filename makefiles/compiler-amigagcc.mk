@@ -1,5 +1,6 @@
 CC := m68k-amigaos-gcc
 AMIGA_CRT ?= clib2
+AMIGA_WB13 ?= 0
 FUJINET_NIO_DRIVER_BUILD ?= ../fujinet-nio-driver/build/amiga
 
 CFLAGS += -Wall -Wextra -O2 -std=c99
@@ -13,6 +14,9 @@ CFLAGS += -I$(PLATFORM_INCLUDE_DIR)
 CFLAGS += -I$(NIO_INCLUDE_DIR)
 CFLAGS += -I$(FUJINET_NIO_DRIVER_BUILD)/include
 CFLAGS += -DFNSVC_LIST_MAX_PAYLOAD=$(FNSVC_LIST_MAX_PAYLOAD)
+ifeq ($(AMIGA_WB13),1)
+CFLAGS += -D__KICK13__
+endif
 
 # clib2 keeps the application self-contained.  The default newlib startup
 # imports mathieeedoubbas.library, which is an optional AmigaOS runtime
