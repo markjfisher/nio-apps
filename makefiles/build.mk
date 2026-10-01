@@ -18,6 +18,15 @@ PLATFORM_INCLUDE_DIR := include/platform/$(PLATFORM)
 NIO_INCLUDE_DIR := $(FUJINET_NIO_LIB)/include
 BUILD_DIR ?= build
 TARGET_BUILD_DIR ?= $(BUILD_DIR)/$(TARGET)
+
+# The repository Makefile is the public Amiga entry point.  It supplies a
+# named Workbench output directory; refusing this legacy default prevents an
+# incompatible binary from silently reappearing in build/amiga/bin.
+ifeq ($(TARGET),amiga)
+ifeq ($(TARGET_BUILD_DIR),$(BUILD_DIR)/amiga)
+$(error Amiga builds require TARGET_BUILD_DIR=build/amiga/wb13, wb31, or wb32; use `make amiga`)
+endif
+endif
 OBJ_DIR := $(TARGET_BUILD_DIR)/obj
 BIN_DIR := $(TARGET_BUILD_DIR)/bin
 DISK_DIR := $(TARGET_BUILD_DIR)/disk
@@ -35,6 +44,13 @@ PROGRAMS_EXCLUDE_bbc-clib := fsioraw $(AMIGA_PROGRAMS)
 PROGRAMS_EXCLUDE_linux := $(AMIGA_PROGRAMS) fsioraw
 PROGRAMS_EXCLUDE_amiga := fsioraw
 PROGRAMS_EXCLUDE := $(PROGRAMS_EXCLUDE_$(TARGET))
+ifeq ($(AMIGA_WB13),1)
+# These diagnostics exercise dynamic DOS nodes and handler inhibition, whose
+# public DOS APIs begin with Kickstart 2.0.  WB1.3 has dedicated static-
+# MountList coverage instead.
+PROGRAMS_EXCLUDE += doslistdiag dynamicdosnode fmount_inhibit_exp_a \
+                    fmount_inhibit_exp_b inhibitpoc lockdiag
+endif
 PROGRAMS := $(filter-out $(PROGRAMS_EXCLUDE),$(PROGRAMS_ALL))
 MSDOS_APP_SRCS := $(if $(filter msdos,$(TARGET)),$(sort $(wildcard msdos/apps/*.c)))
 MSDOS_PROGRAMS := $(basename $(notdir $(MSDOS_APP_SRCS)))

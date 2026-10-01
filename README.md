@@ -34,15 +34,18 @@ Build one target:
 make TARGET=msdos FUJINET_NIO_LIB=../fujinet-nio-lib
 make TARGET=atari FUJINET_NIO_LIB=../fujinet-nio-lib
 make TARGET=linux FUJINET_NIO_LIB=../fujinet-nio-lib
-make TARGET=amiga FUJINET_NIO_LIB=../fujinet-nio-lib
+make amiga                         # builds wb13, wb31, and wb32
+make amiga AMIGA_PROFILE=wb13      # one explicit profile
 ```
 
-Outputs are written to `build/<target>/bin/`:
+Outputs are written to `build/<target>/bin/`, except Amiga, which is always
+profile-qualified as `build/amiga/wb13/bin/`, `build/amiga/wb31/bin/`, or
+`build/amiga/wb32/bin/`:
 
 - MS-DOS: `.exe`
 - Atari: `.xex`
 - BBC: extensionless program binaries
-- Amiga: extensionless AmigaOS executables
+- Amiga: extensionless AmigaOS executables in the selected profile directory
 
 Portable test apps are discovered from `apps/test/*.c`. MS-DOS-specific
 diagnostic apps are discovered from `msdos/apps/*.c`.
@@ -90,4 +93,5 @@ keys, then deletes `beta` and leaves `alpha` behind for filesystem inspection.
 with a hand-written m68k implementation over several buffer sizes and reports
 EClock ticks, ticks per iteration, and approximate microseconds per iteration.
 Each result is checked against the C checksum before it is printed. Build it
-with `make -f makefiles/build.mk TARGET=amiga checksumbench`.
+with `make amiga AMIGA_PROFILE=wb32`, or use `make -f makefiles/build.mk`
+with an explicit `TARGET_BUILD_DIR=build/amiga/wb32`.
